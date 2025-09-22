@@ -1,0 +1,79 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: qncontest-backend
+  
+  # MySQL数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:qn}?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
+  
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    format-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        # 禁用严格的schema验证
+        hbm2ddl:
+          auto: update
+        # 禁用枚举验证
+        globally_quoted_identifiers: true
+  
+  security:
+    user:
+      name: admin
+      password: admin
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:mySecretKey123456789012345678901234567890}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:900000}  # 15 minutes in milliseconds
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days in milliseconds
+
+# Admin Registration Configuration
+admin:
+  registration-key: ${ADMIN_REGISTRATION_KEY:123456}
+
+# AI Configuration
+ai:
+  dashscope:
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-plus-latest
+    api-key: ${DASHSCOPE_API_KEY:}
+
+# LangChain4j Configuration
+langchain4j:
+  dashscope:
+    chat-model:
+      api-key: ${DASHSCOPE_API_KEY:}
+      model-name: qwen-plus
+      temperature: 0.7
+      max-tokens: 2000
+      top-p: 0.8
+    embedding-model:
+      api-key: ${DASHSCOPE_API_KEY:}
+      model-name: text-embedding-v2
+  # Chat Memory Configuration
+  chat-memory:
+    max-messages: 20
+  # Enable experimental features
+  experimental:
+    streaming: true
+
+# Logging
+logging:
+  level:
+    com.qncontest: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

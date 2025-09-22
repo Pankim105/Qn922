@@ -1,0 +1,474 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* 
+    根 :root 定义了浅色模式（默认主题）的全局颜色变量。
+    这些变量被命名以匹配 Tailwind CSS 和 shadcn/ui 的约定，
+    确保组件可以自动继承正确的主题色。
+  */
+  :root {
+    /* 核心颜色 */
+    --background: 255 100% 99%; /* 轻微偏离纯白，更柔和 */
+    --foreground: 220 14% 15%; /* 高对比度的深灰色文本 */
+
+    /* 卡片、弹窗等容器的颜色 */
+    --card: 0 0% 100%;
+    --card-foreground: 220 14% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 14% 15%;
+
+    /* 主色（默认：清新绿） */
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    /* 次要颜色（用于次要按钮等） */
+    --secondary: 220 10% 97%;
+    --secondary-foreground: 220 14% 35%;
+    
+    /* 柔和/弱化颜色（用于辅助文本、分隔线） */
+    --muted: 220 10% 95%;
+    --muted-foreground: 220 10% 45%;
+
+    /* 强调色（设计稿中的温暖橙） */
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    /* 危险/破坏性操作颜色 */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* 边框与输入框 */
+    --border: 220 13% 90%;
+    --input: 220 13% 85%;
+    --ring: 142 71% 45%; /* 焦点环颜色，跟随主色 */
+
+    /* 圆角 */
+    --radius: 0.5rem; /* 使用 rem 单位以支持缩放，0.5rem ≈ 8px */
+  }
+
+  /* 
+    夜间模式：遵循"食欲友好"原则。
+    - 背景为深灰蓝而非纯黑，避免冰冷感。
+    - 卡片背景比主背景略亮，形成层次。
+    - 强调色保持暖调，提供视觉焦点。
+  */
+  .dark {
+    --background: 210 17% 8%;
+    --foreground: 210 15% 90%;
+
+    --card: 210 15% 10%;
+    --card-foreground: 210 15% 90%;
+
+    --popover: 210 17% 8%;
+    --popover-foreground: 210 15% 90%;
+
+    --primary: 142 64% 44%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 12% 18%;
+    --secondary-foreground: 210 15% 90%;
+
+    --muted: 210 12% 18%;
+    --muted-foreground: 210 10% 60%;
+
+    --accent: 20 92% 56%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 12% 18%;
+    --input: 210 12% 22%;
+    --ring: 142 64% 44%;
+  }
+}
+
+/* 
+  主题颜色系统：通过在根元素上添加 class 来覆盖颜色变量。
+  每个主题包含完整的色彩语义，支持边框、阴影、背景等元素的主题化。
+  注意：这些类需要在 @layer base 外部定义，以确保在浅色和深色模式下都能正常工作。
+*/
+.theme-green {
+  --primary: 142 71% 45%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 120 60% 50%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 142 71% 45%;
+  
+  /* 主题化的边框和阴影 */
+  --primary-border: 142 71% 45%;
+  --primary-shadow: 142 71% 45%;
+  --accent-border: 120 60% 50%;
+  --accent-shadow: 120 60% 50%;
+  
+  /* 主题化的背景变体 */
+  --primary-bg-subtle: 142 71% 97%;
+  --accent-bg-subtle: 120 60% 97%;
+  --primary-hover: 142 71% 40%;
+  --accent-hover: 120 60% 45%;
+}
+
+.theme-orange {
+  --primary: 24 95% 53%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 35 91% 62%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 24 95% 53%;
+  
+  --primary-border: 24 95% 53%;
+  --primary-shadow: 24 95% 53%;
+  --accent-border: 35 91% 62%;
+  --accent-shadow: 35 91% 62%;
+  
+  --primary-bg-subtle: 24 95% 97%;
+  --accent-bg-subtle: 35 91% 97%;
+  --primary-hover: 24 95% 48%;
+  --accent-hover: 35 91% 57%;
+}
+
+.theme-purple {
+  --primary: 270 80% 60%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 280 70% 65%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 270 80% 60%;
+  
+  --primary-border: 270 80% 60%;
+  --primary-shadow: 270 80% 60%;
+  --accent-border: 280 70% 65%;
+  --accent-shadow: 280 70% 65%;
+  
+  --primary-bg-subtle: 270 80% 97%;
+  --accent-bg-subtle: 280 70% 97%;
+  --primary-hover: 270 80% 55%;
+  --accent-hover: 280 70% 60%;
+}
+
+.theme-blue {
+  --primary: 210 98% 58%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 200 95% 62%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 210 98% 58%;
+  
+  --primary-border: 210 98% 58%;
+  --primary-shadow: 210 98% 58%;
+  --accent-border: 200 95% 62%;
+  --accent-shadow: 200 95% 62%;
+  
+  --primary-bg-subtle: 210 98% 97%;
+  --accent-bg-subtle: 200 95% 97%;
+  --primary-hover: 210 98% 53%;
+  --accent-hover: 200 95% 57%;
+}
+
+.theme-rose {
+  --primary: 330 81% 60%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 340 75% 65%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 330 81% 60%;
+  
+  --primary-border: 330 81% 60%;
+  --primary-shadow: 330 81% 60%;
+  --accent-border: 340 75% 65%;
+  --accent-shadow: 340 75% 65%;
+  
+  --primary-bg-subtle: 330 81% 97%;
+  --accent-bg-subtle: 340 75% 97%;
+  --primary-hover: 330 81% 55%;
+  --accent-hover: 340 75% 60%;
+}
+
+/* 深色模式下的主题颜色调整（稍微降低饱和度和亮度） */
+.dark.theme-green {
+  --primary: 142 64% 44%;
+  --accent: 120 55% 48%;
+  --primary-border: 142 64% 44%;
+  --primary-shadow: 142 64% 44%;
+  --accent-border: 120 55% 48%;
+  --accent-shadow: 120 55% 48%;
+  --primary-bg-subtle: 142 64% 8%;
+  --accent-bg-subtle: 120 55% 8%;
+  --primary-hover: 142 64% 50%;
+  --accent-hover: 120 55% 54%;
+}
+
+.dark.theme-orange {
+  --primary: 24 92% 56%;
+  --accent: 35 88% 60%;
+  --primary-border: 24 92% 56%;
+  --primary-shadow: 24 92% 56%;
+  --accent-border: 35 88% 60%;
+  --accent-shadow: 35 88% 60%;
+  --primary-bg-subtle: 24 92% 8%;
+  --accent-bg-subtle: 35 88% 8%;
+  --primary-hover: 24 92% 62%;
+  --accent-hover: 35 88% 66%;
+}
+
+.dark.theme-purple {
+  --primary: 270 75% 58%;
+  --accent: 280 65% 63%;
+  --primary-border: 270 75% 58%;
+  --primary-shadow: 270 75% 58%;
+  --accent-border: 280 65% 63%;
+  --accent-shadow: 280 65% 63%;
+  --primary-bg-subtle: 270 75% 8%;
+  --accent-bg-subtle: 280 65% 8%;
+  --primary-hover: 270 75% 64%;
+  --accent-hover: 280 65% 69%;
+}
+
+.dark.theme-blue {
+  --primary: 210 95% 56%;
+  --accent: 200 90% 60%;
+  --primary-border: 210 95% 56%;
+  --primary-shadow: 210 95% 56%;
+  --accent-border: 200 90% 60%;
+  --accent-shadow: 200 90% 60%;
+  --primary-bg-subtle: 210 95% 8%;
+  --accent-bg-subtle: 200 90% 8%;
+  --primary-hover: 210 95% 62%;
+  --accent-hover: 200 90% 66%;
+}
+
+.dark.theme-rose {
+  --primary: 330 78% 58%;
+  --accent: 340 70% 63%;
+  --primary-border: 330 78% 58%;
+  --primary-shadow: 330 78% 58%;
+  --accent-border: 340 70% 63%;
+  --accent-shadow: 340 70% 63%;
+  --primary-bg-subtle: 330 78% 8%;
+  --accent-bg-subtle: 340 70% 8%;
+  --primary-hover: 330 78% 64%;
+  --accent-hover: 340 70% 69%;
+}
+
+@layer base {
+  /* 应用基础样式 */
+  * {
+    @apply border-border; /* 所有元素的边框颜色默认为 --border 变量 */
+  }
+  body {
+    @apply bg-background text-foreground; /* 设置页面背景与前景（文本）颜色 */
+    font-feature-settings: "rlig" 1, "calt" 1; /* 启用更美观的连字特性 */
+  }
+  
+  /* 防止表单组件闪烁光标 */
+  input[type="checkbox"],
+  input[type="radio"] {
+    /* 防止文本光标闪烁 */
+    caret-color: transparent;
+    /* 防止选择文本 */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* 防止拖拽 */
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    user-drag: none;
+  }
+  
+  /* 自定义表单组件容器样式 */
+  .form-control-container {
+    /* 防止文本选择 */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* 防止光标闪烁 */
+    caret-color: transparent;
+    /* 改善点击体验 */
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* 自定义表单组件点击效果 */
+  .form-control-clickable {
+    /* 防止默认的点击高亮 */
+    -webkit-tap-highlight-color: transparent;
+    /* 防止文本选择 */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* 防止光标闪烁 */
+    caret-color: transparent;
+    /* 改善触摸体验 */
+    touch-action: manipulation;
+  }
+  
+  /* 隐藏原生表单控件但保持可访问性 */
+  .sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    /* 防止光标闪烁 */
+    caret-color: transparent !important;
+  }
+  
+  /* 改善表单组件的焦点样式 */
+  .form-control-focus {
+    outline: none;
+    /* 使用自定义焦点样式而不是默认的outline */
+  }
+  
+  /* 防止双击选择文本 */
+  .form-control-no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  /* 主题化边框工具类 */
+  .border-primary { border-color: hsl(var(--primary-border)); }
+  .border-accent { border-color: hsl(var(--accent-border)); }
+  
+  /* 主题化背景工具类 */
+  .bg-primary-subtle { background-color: hsl(var(--primary-bg-subtle)); }
+  .bg-accent-subtle { background-color: hsl(var(--accent-bg-subtle)); }
+  
+  /* 主题化阴影工具类 */
+  .shadow-primary { box-shadow: 0 1px 3px 0 hsl(var(--primary-shadow) / 0.1), 0 1px 2px -1px hsl(var(--primary-shadow) / 0.1); }
+  .shadow-accent { box-shadow: 0 1px 3px 0 hsl(var(--accent-shadow) / 0.1), 0 1px 2px -1px hsl(var(--accent-shadow) / 0.1); }
+  .shadow-primary-md { box-shadow: 0 4px 6px -1px hsl(var(--primary-shadow) / 0.1), 0 2px 4px -2px hsl(var(--primary-shadow) / 0.1); }
+  .shadow-accent-md { box-shadow: 0 4px 6px -1px hsl(var(--accent-shadow) / 0.1), 0 2px 4px -2px hsl(var(--accent-shadow) / 0.1); }
+  
+  /* 主题化悬停状态 */
+  .hover\:bg-primary-hover:hover { background-color: hsl(var(--primary-hover)); }
+  .hover\:bg-accent-hover:hover { background-color: hsl(var(--accent-hover)); }
+  .hover\:border-primary-hover:hover { border-color: hsl(var(--primary-hover)); }
+  .hover\:border-accent-hover:hover { border-color: hsl(var(--accent-hover)); }
+  
+  /* 主题化焦点状态 */
+  .focus\:ring-primary:focus { 
+    --tw-ring-color: hsl(var(--primary-shadow) / 0.5);
+    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+  }
+  .focus\:ring-accent:focus { 
+    --tw-ring-color: hsl(var(--accent-shadow) / 0.5);
+    box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+  }
+  
+  /* 主题化渐变 */
+  .bg-gradient-primary { background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent))); }
+  .bg-gradient-primary-subtle { background: linear-gradient(135deg, hsl(var(--primary-bg-subtle)), hsl(var(--accent-bg-subtle))); }
+
+  /* 主题响应的环境背景（随主题色变化） */
+  .themed-ambient-bg {
+    background-image:
+      linear-gradient(180deg, hsl(var(--muted) / 0.80), transparent 30%, transparent 70%, hsl(var(--muted) / 0.60)),
+      radial-gradient(900px 450px at 50% 30%, hsl(var(--primary) / 0.30), transparent 70%),
+      radial-gradient(1400px 700px at 0% 0%, hsl(var(--primary) / 0.30), transparent 70%),
+      radial-gradient(1200px 600px at 100% 20%, hsl(var(--accent) / 0.25), transparent 70%),
+      radial-gradient(900px 500px at 50% 100%, hsl(var(--primary) / 0.20), transparent 70%);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+    background-blend-mode: normal, soft-light, soft-light, soft-light, soft-light;
+  }
+
+  .dark .themed-ambient-bg {
+    background-blend-mode: screen, screen, screen, screen, screen;
+  }
+  
+  /* 翻转卡片相关样式 */
+  .flip-card-container {
+    perspective: 1000px;
+    perspective-origin: center center;
+  }
+  
+  .flip-card-inner {
+    transform-style: preserve-3d;
+    transition-property: transform;
+  }
+  
+  .flip-card-front,
+  .flip-card-back {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* 手风琴动画 */
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  .animate-accordion-down {
+    animation: accordion-down 0.2s ease-out;
+  }
+
+  .animate-accordion-up {
+    animation: accordion-up 0.2s ease-out;
+  }
+  
+  /* 3D 效果优化 */
+  .transform-gpu {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* 自定义缓动函数 */
+  .flip-ease-bounce {
+    transition-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .flip-ease-elastic {
+    transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  
+  .flip-ease-back {
+    transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  
+  /* 表单组件专用工具类 */
+  .form-control-no-cursor {
+    caret-color: transparent;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  .form-control-no-highlight {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+  
+  .form-control-touch-optimized {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
