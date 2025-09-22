@@ -16,6 +16,7 @@ import {
   PasswordInput
 } from 'modern-ui-components';
 import { User, Mail, Lock, AlertCircle, CheckCircle, Key } from 'lucide-react';
+import axios from 'axios';
 
 interface AuthModalProps {
   open: boolean;
@@ -120,38 +121,29 @@ const AuthModal: React.FC<AuthModalProps> = ({
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(loginForm),
-      });
+      const response = await axios.post('http://localhost:8080/api/auth/login', loginForm);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('登录成功！正在为您跳转...');
-        // 存储token到localStorage
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // 调用父组件的登录回调
-        if (onLogin) {
-          onLogin(loginForm);
-        }
-        
-        // 延迟关闭模态框
-        setTimeout(() => {
-          onOpenChange(false);
-          resetForms();
-        }, 1500);
-      } else {
-        setError(data.message || '登录失败，请检查您的凭据');
+      setSuccess('登录成功！正在为您跳转...');
+      // 存储token到localStorage
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // 调用父组件的登录回调
+      if (onLogin) {
+        onLogin(loginForm);
       }
-    } catch (err) {
-      setError('网络连接错误，请检查后端服务是否启动');
+      
+      // 延迟关闭模态框
+      setTimeout(() => {
+        onOpenChange(false);
+        resetForms();
+      }, 1500);
+    } catch (error: any) {
+      console.error('登录错误:', error);
+      const errorMessage = error.response?.data?.message || '登录失败，请检查您的凭据';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -175,38 +167,29 @@ const AuthModal: React.FC<AuthModalProps> = ({
         registerData.adminKey = registerForm.adminKey;
       }
 
-      const response = await fetch('http://localhost:8080/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(registerData),
-      });
+      const response = await axios.post('http://localhost:8080/api/auth/register', registerData);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('注册成功！正在为您登录...');
-        // 存储token到localStorage
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // 调用父组件的注册回调
-        if (onRegister) {
-          onRegister(registerForm);
-        }
-        
-        // 延迟关闭模态框
-        setTimeout(() => {
-          onOpenChange(false);
-          resetForms();
-        }, 1500);
-      } else {
-        setError(data.message || '注册失败，请重试');
+      setSuccess('注册成功！正在为您登录...');
+      // 存储token到localStorage
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // 调用父组件的注册回调
+      if (onRegister) {
+        onRegister(registerForm);
       }
-    } catch (err) {
-      setError('网络连接错误，请检查后端服务是否启动');
+      
+      // 延迟关闭模态框
+      setTimeout(() => {
+        onOpenChange(false);
+        resetForms();
+      }, 1500);
+    } catch (error: any) {
+      console.error('注册错误:', error);
+      const errorMessage = error.response?.data?.message || '注册失败，请重试';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

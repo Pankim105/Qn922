@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import AuthModal from './components/AuthModal';
 import UserProfile from './components/UserProfile';
+import api, { streamChatRequest } from './utils/api';
 import ApiTester from './components/ApiTester';
 
 interface User {
@@ -48,7 +49,10 @@ interface ChatHistoryMessage {
 }
 
 // 增强版AI聊天组件
-const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticated }) => {
+const EnhancedAIChat: React.FC<{ 
+  isAuthenticated: boolean;
+  onAuthFailure: () => void;
+}> = ({ isAuthenticated, onAuthFailure }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
@@ -62,6 +66,7 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [activeRequest, setActiveRequest] = useState<AbortController | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -88,26 +93,39 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
     adjustTextareaHeight();
   }, [inputMessage]);
 
+  // 简单的JWT测试函数
+  const testJWT = async () => {
+    console.log('=== JWT测试开始 ===');
+    try {
+      const response = await api.get('/chat/auth-test');
+      console.log('响应状态:', response.status);
+      console.log('响应内容:', response.data);
+    } catch (error) {
+      console.error('请求失败:', error);
+    }
+    console.log('=== JWT测试结束 ===');
+  };
+
+  // Token验证函数（简化版，axios拦截器会自动处理刷新）
+  const verifyToken = async (): Promise<boolean> => {
+    try {
+      await api.get('/chat/verify-token');
+      return true;
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      onAuthFailure();
+      return false;
+    }
+  };
+
   // 加载聊天会话列表
   const loadChatSessions = async () => {
     if (!isAuthenticated) return;
     
     setLoadingSessions(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:8080/api/chat/session/list', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setChatSessions(data.sessions || []);
-      } else {
-        console.error('加载会话列表失败:', response.status);
-      }
+      const response = await api.get('/chat/session/list');
+      setChatSessions(response.data.sessions || []);
     } catch (error) {
       console.error('加载会话列表失败:', error);
     } finally {
@@ -120,39 +138,27 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
     if (!isAuthenticated) return;
     
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:8080/api/chat/session/${targetSessionId}/messages`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await api.get(`/chat/session/${targetSessionId}/messages`);
+      const sessionMessages = response.data.messages || [];
+      
+      // 转换为前端消息格式
+      const convertedMessages: ChatMessage[] = sessionMessages.map((msg: any) => ({
+        id: msg.id.toString(),
+        type: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content,
+        timestamp: new Date(msg.createdAt),
+        isComplete: true,
+        sequenceNumber: msg.sequenceNumber,
+      }));
 
-      if (response.ok) {
-        const data = await response.json();
-        const sessionMessages = data.messages || [];
-        
-        // 转换为前端消息格式
-        const convertedMessages: ChatMessage[] = sessionMessages.map((msg: any) => ({
-          id: msg.id.toString(),
-          type: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content,
-          timestamp: new Date(msg.createdAt),
-          isComplete: true,
-          sequenceNumber: msg.sequenceNumber,
-        }));
-
-        setMessages(convertedMessages);
-        setSessionId(targetSessionId);
-        
-        // 更新当前会话标题
-        const currentSession = chatSessions.find(s => s.sessionId === targetSessionId);
-        setCurrentSessionTitle(currentSession?.title || '对话');
-        
-        setShowHistory(false);
-      } else {
-        console.error('加载会话消息失败:', response.status);
-      }
+      setMessages(convertedMessages);
+      setSessionId(targetSessionId);
+      
+      // 更新当前会话标题
+      const currentSession = chatSessions.find(s => s.sessionId === targetSessionId);
+      setCurrentSessionTitle(currentSession?.title || '对话');
+      
+      setShowHistory(false);
     } catch (error) {
       console.error('加载会话消息失败:', error);
     }
@@ -163,24 +169,14 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
     if (!isAuthenticated) return;
     
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:8080/api/chat/session/${targetSessionId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        // 重新加载会话列表
-        loadChatSessions();
-        
-        // 如果删除的是当前会话，创建新会话
-        if (targetSessionId === sessionId) {
-          startNewChat();
-        }
-      } else {
-        console.error('删除会话失败:', response.status);
+      await api.delete(`/chat/session/${targetSessionId}`);
+      
+      // 重新加载会话列表
+      loadChatSessions();
+      
+      // 如果删除的是当前会话，创建新会话
+      if (targetSessionId === sessionId) {
+        startNewChat();
       }
     } catch (error) {
       console.error('删除会话失败:', error);
@@ -207,6 +203,13 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
   const sendMessage = async () => {
     if (!inputMessage.trim() || !isAuthenticated || isLoading) return;
 
+    // 取消之前的请求（如果存在）
+    if (activeRequest) {
+      console.log('取消之前的请求');
+      activeRequest.abort();
+      setActiveRequest(null);
+    }
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
@@ -219,6 +222,10 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
     setInputMessage('');
     setIsLoading(true);
     setError(null);
+    
+    // 创建新的AbortController
+    const controller = new AbortController();
+    setActiveRequest(controller);
 
     // 创建AI消息容器
     const aiMessageId = (Date.now() + 1).toString();
@@ -236,8 +243,6 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
     let hasReceivedData = false;
 
     try {
-      const token = localStorage.getItem('accessToken');
-      
       // 构建对话历史 (排除当前消息和初始欢迎消息)
       const history: ChatHistoryMessage[] = messages
         .filter(msg => msg.id !== '1' && msg.id !== userMessage.id && msg.isComplete)
@@ -246,75 +251,38 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
           content: msg.content
         }));
 
-      const response = await fetch('http://localhost:8080/api/chat/stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          message: userMessage.content,
-          sessionId: sessionId,
-          history: history,
-          systemPrompt: '你是一个智能助手，可以帮助用户解答各种问题。请用友好、专业的语气回答。记住之前的对话内容，保持对话的连贯性。',
-        }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('认证失败，请重新登录');
-        }
-        throw new Error(`请求失败: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              streamCompleted = true;
-              break;
-            }
-
+      // 使用新的流式请求函数
+      try {
+        await streamChatRequest(
+          {
+            message: userMessage.content,
+            sessionId: sessionId,
+            history: history,
+            systemPrompt: '你是一个智能助手，可以帮助用户解答各种问题。请用友好、专业的语气回答。记住之前的对话内容，保持对话的连贯性。',
+          },
+          (content: string) => {
             hasReceivedData = true;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              if (line.trim() === '') continue;
-
-              if (line.startsWith('data:')) {
-                const data = line.substring(5).trim();
-                if (data === '[DONE]') continue;
-
-                try {
-                  const event = JSON.parse(data);
-                  if (event.content) {
-                    setMessages(prev => prev.map(msg =>
-                      msg.id === aiMessageId
-                        ? { ...msg, content: msg.content + event.content }
-                        : msg
-                    ));
-                  }
-                } catch (e) {
-                  console.warn('解析事件失败:', data, e);
-                }
-              }
-            }
-          }
-        } catch (readerError) {
-          if (hasReceivedData) {
-            console.log('流式连接结束 (可能是正常结束)');
+            setMessages(prev => prev.map(msg =>
+              msg.id === aiMessageId
+                ? { ...msg, content: msg.content + content }
+                : msg
+            ));
+          },
+          () => {
             streamCompleted = true;
-          } else {
-            throw readerError;
-          }
-        }
+            console.log('流式对话完成');
+          },
+          controller.signal
+        );
+      } catch (error) {
+        console.error('流式请求失败:', error);
+        // 即使出错也要标记为完成，避免界面卡住
+        streamCompleted = true;
+        setMessages(prev => prev.map(msg =>
+          msg.id === aiMessageId
+            ? { ...msg, content: msg.content + '\n\n[连接中断，请重试]', isComplete: true }
+            : msg
+        ));
       }
 
       // 标记AI消息为完成
@@ -335,7 +303,18 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
     } catch (error) {
       console.error('发送消息失败:', error);
       
-      if (!hasReceivedData && !streamCompleted) {
+      // 检查是否是请求被取消
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('请求被用户取消');
+        return; // 不显示错误，直接返回
+      }
+      
+      // 检查是否是正常的流结束错误
+      const isNormalStreamEnd = error instanceof Error && 
+        (error.message.includes('ERR_INCOMPLETE_CHUNKED_ENCODING') || 
+         error.message.includes('network error'));
+      
+      if (!hasReceivedData && !streamCompleted && !isNormalStreamEnd) {
         const errorMessage = error instanceof Error ? error.message : '发送消息失败';
         setError(errorMessage);
 
@@ -345,6 +324,11 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
             : msg
         ));
       } else {
+        // 对于正常的流结束或已收到数据的情况，不显示错误
+        if (isNormalStreamEnd && hasReceivedData) {
+          console.log('流式连接正常结束，已收到数据');
+        }
+        
         setMessages(prev => prev.map(msg =>
           msg.id === aiMessageId
             ? { ...msg, isComplete: true }
@@ -353,6 +337,7 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
       }
     } finally {
       setIsLoading(false);
+      setActiveRequest(null); // 清理请求控制器
     }
   };
 
@@ -416,6 +401,14 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
             >
               <MessageSquare className="w-4 h-4" />
               新对话
+            </Button>
+            <Button
+              onClick={testJWT}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              🔧 测试JWT
             </Button>
           </div>
         </div>
@@ -540,7 +533,7 @@ const EnhancedAIChat: React.FC<{ isAuthenticated: boolean }> = ({ isAuthenticate
                     ref={textareaRef}
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     placeholder={isAuthenticated ? "输入你的消息..." : "请先登录以开始对话"}
                     disabled={!isAuthenticated || isLoading}
                     className="w-full px-4 py-3 border rounded-xl resize-none min-h-[44px] max-h-[120px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -580,6 +573,7 @@ function Test() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('blue');
+
 
   // 检查本地存储中的用户信息
   useEffect(() => {
@@ -693,7 +687,13 @@ function Test() {
 
           {/* AI对话 */}
           <div className="space-y-4 lg:col-span-2 xl:col-span-1">
-            <EnhancedAIChat isAuthenticated={isAuthenticated} />
+            <EnhancedAIChat 
+              isAuthenticated={isAuthenticated} 
+              onAuthFailure={() => {
+                setIsAuthenticated(false);
+                setUser(null);
+              }}
+            />
           </div>
         </div>
 

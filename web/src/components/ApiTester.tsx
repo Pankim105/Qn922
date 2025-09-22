@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button } from 'modern-ui-components';
+import api from '../utils/api';
 
 interface ApiTesterProps {
   isAuthenticated: boolean;
@@ -14,24 +15,15 @@ const ApiTester: React.FC<ApiTesterProps> = ({ isAuthenticated }) => {
     setResponse('');
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`http://localhost:8080/api${endpoint}`, {
-        method,
-        headers,
+      const response = await api.request({
+        url: endpoint,
+        method: method as any,
       });
-
-      const data = await response.json();
-      setResponse(JSON.stringify(data, null, 2));
-    } catch (error) {
-      setResponse(`错误: ${error instanceof Error ? error.message : '未知错误'}`);
+      
+      setResponse(JSON.stringify(response.data, null, 2));
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || '未知错误';
+      setResponse(`错误: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

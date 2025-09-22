@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button } from 'modern-ui-components';
+import axios from 'axios';
 
 interface User {
   id: number;
@@ -22,13 +23,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout }) => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
-        await fetch('http://localhost:8080/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ refreshToken }),
-        });
+        await axios.post('http://localhost:8080/api/auth/logout', { refreshToken });
       }
     } catch (error) {
       console.error('登出请求失败:', error);

@@ -61,4 +61,30 @@ public class StreamChatController {
             "timestamp", System.currentTimeMillis()
         ));
     }
+    
+    /**
+     * Token验证接口
+     */
+    @GetMapping("/verify-token")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> verifyToken() {
+        return ResponseEntity.ok(Map.of(
+            "status", "valid",
+            "message", "Token is valid",
+            "timestamp", System.currentTimeMillis()
+        ));
+    }
+    
+    /**
+     * 简单的认证测试接口
+     */
+    @GetMapping("/auth-test")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> authTest() {
+        return ResponseEntity.ok(Map.of(
+            "authenticated", true,
+            "message", "Authentication successful",
+            "timestamp", System.currentTimeMillis()
+        ));
+    }
 }

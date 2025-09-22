@@ -23,7 +23,24 @@ public class AccessDeniedHandlerJwt implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                       AccessDeniedException accessDeniedException) throws IOException, ServletException {
-        logger.error("Access denied error: {}", accessDeniedException.getMessage());
+        
+        String requestPath = request.getRequestURI();
+        String method = request.getMethod();
+        
+        // 检查是否是响应已提交的情况（SSE流中断后的重试请求）
+        if (response.isCommitted()) {
+            logger.debug("Response already committed for {} {}, skipping access denied handling", method, requestPath);
+            return;
+        }
+        
+        // 对于SSE相关的访问拒绝，使用DEBUG级别而不是ERROR
+        if (requestPath.contains("/chat/stream")) {
+            logger.debug("SSE access denied for {} {}: {}", method, requestPath, accessDeniedException.getMessage());
+            // 对于SSE流中断后的匿名请求，直接返回，不写响应
+            return;
+        } else {
+            logger.warn("Access denied for {} {}: {}", method, requestPath, accessDeniedException.getMessage());
+        }
         
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);

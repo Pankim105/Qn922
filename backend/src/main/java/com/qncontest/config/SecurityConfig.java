@@ -3,6 +3,7 @@ package com.qncontest.config;
 import com.qncontest.security.AccessDeniedHandlerJwt;
 import com.qncontest.security.AuthEntryPointJwt;
 import com.qncontest.security.JwtAuthenticationFilter;
+import com.qncontest.security.SseExceptionFilter;
 import com.qncontest.service.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -42,6 +43,9 @@ public class SecurityConfig {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
     
     @Autowired
+    private SseExceptionFilter sseExceptionFilter;
+    
+    @Autowired
     private PasswordEncoder passwordEncoder;
     
     @Bean
@@ -70,6 +74,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/test/public").permitAll()
                 .requestMatchers("/chat/health").permitAll()
+                .requestMatchers("/chat/verify-token").authenticated()
                 .requestMatchers("/chat/**").authenticated()
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
@@ -77,6 +82,9 @@ public class SecurityConfig {
         
         // 添加JWT过滤器
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        
+        // 添加SSE异常过滤器（在所有安全过滤器之前）
+        http.addFilterAfter(sseExceptionFilter, org.springframework.web.filter.CorsFilter.class);
         
         // 配置认证提供者
         http.authenticationProvider(authenticationProvider());

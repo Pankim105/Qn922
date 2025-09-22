@@ -27,6 +27,7 @@ com\qncontest\entity\ChatMessage.class
 com\qncontest\security\AccessDeniedHandlerJwt.class
 com\qncontest\controller\TestController.class
 com\qncontest\service\StreamAiService.class
+com\qncontest\security\SseExceptionFilter.class
 com\qncontest\service\UserDetailsServiceImpl.class
 com\qncontest\controller\AuthController.class
 com\qncontest\dto\AuthResponse$UserInfo.class

@@ -15,10 +15,12 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.core.annotation.Order;
 
 import java.io.IOException;
 
 @Component
+@Order(2) // 设置过滤器顺序
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);

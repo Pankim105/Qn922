@@ -11,13 +11,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
+
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -27,6 +25,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
 
 @Service
 public class StreamAiService {
@@ -45,11 +47,27 @@ public class StreamAiService {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
     
+    // 创建带有安全上下文的执行器
+    private final Executor securityContextExecutor;
+    
+    public StreamAiService() {
+        // 创建线程池
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("SSE-");
+        executor.initialize();
+        
+        // 包装为支持安全上下文的执行器
+        this.securityContextExecutor = new DelegatingSecurityContextAsyncTaskExecutor(executor);
+    }
+    
     /**
      * 流式对话接口
      */
     public SseEmitter streamChat(ChatRequest chatRequest) {
-        SseEmitter emitter = new SseEmitter(30000L); // 30秒超时
+        SseEmitter emitter = new SseEmitter(60000L); // 60秒超时，增加超时时间
         
         // 获取当前用户信息
         String currentUser = getCurrentUsername();
@@ -65,43 +83,38 @@ public class StreamAiService {
         
         // 设置超时回调
         emitter.onTimeout(() -> {
-            log.warn("流式对话超时");
+            log.debug("SSE流式对话超时，正常关闭连接");
             if (completed.compareAndSet(false, true)) {
                 try {
-                    Map<String, String> error = new HashMap<>();
-                    error.put("error", "请求超时");
-                    error.put("type", "timeout");
-                    emitter.send(SseEmitter.event()
-                        .name("error")
-                        .data(error));
+                    emitter.complete();
                 } catch (Exception e) {
-                    log.error("发送超时错误失败", e);
+                    log.debug("完成超时的SSE连接时出错", e);
                 }
-                emitter.complete();
             }
         });
         
         // 设置错误回调
         emitter.onError(throwable -> {
-            log.error("SseEmitter发生错误", throwable);
+            log.debug("SSE连接发生错误，可能是客户端断开连接: {}", throwable.getMessage());
             if (completed.compareAndSet(false, true)) {
                 try {
-                    Map<String, String> error = new HashMap<>();
-                    error.put("error", "连接错误");
-                    error.put("message", throwable.getMessage());
-                    error.put("type", "connection_error");
-                    emitter.send(SseEmitter.event()
-                        .name("error")
-                        .data(error));
+                    emitter.complete();
                 } catch (Exception e) {
-                    log.error("发送连接错误失败", e);
+                    log.debug("完成错误的SSE连接时出错", e);
                 }
-                emitter.complete();
             }
+        });
+        
+        // 设置完成回调
+        emitter.onCompletion(() -> {
+            log.debug("SSE流式对话正常完成");
         });
         
         // 准备会话信息（在异步任务外部定义）
         final String sessionId = chatRequest.getSessionId() != null ? chatRequest.getSessionId() : "default";
+        
+        // 获取当前安全上下文
+        final SecurityContext securityContext = SecurityContextHolder.getContext();
         
         CompletableFuture.runAsync(() -> {
             try {
@@ -140,7 +153,7 @@ public class StreamAiService {
                 com.qncontest.entity.ChatSession dbSession = intelligentChatService.getOrCreateSession(currentUser, sessionId);
                 sendMockResponse(emitter, chatRequest.getMessage(), completed, assistantResponse, dbSession);
             }
-        }).exceptionally(throwable -> {
+        }, securityContextExecutor).exceptionally(throwable -> {
             // 处理异步任务中的异常
             log.error("异步流式对话任务失败", throwable);
             if (completed.compareAndSet(false, true)) {
@@ -207,10 +220,20 @@ public class StreamAiService {
                                 
                                 // 发送完成信号
                                 if (completed.compareAndSet(false, true)) {
-                                    emitter.send(SseEmitter.event()
-                                            .name("complete")
-                                            .data(new ChatResponse("", true)));
-                                    emitter.complete();
+                                    try {
+                                        // 发送完成事件
+                                        emitter.send(SseEmitter.event()
+                                                .name("complete")
+                                                .data(new ChatResponse("", true)));
+                                        
+                                        log.debug("SSE流完成，正常关闭连接");
+                                        // 短暂延迟确保数据发送完成
+                                        Thread.sleep(50);
+                                        emitter.complete();
+                                    } catch (Exception e) {
+                                        log.warn("发送完成信号失败，强制关闭SSE连接", e);
+                                        emitter.complete();
+                                    }
                                 }
                                 break;
                             }
@@ -243,10 +266,20 @@ public class StreamAiService {
                             intelligentChatService.addMessage(dbSession, "assistant", assistantResponse.toString());
                         }
                         
-                        emitter.send(SseEmitter.event()
-                                .name("complete")
-                                .data(new ChatResponse("", true)));
-                        emitter.complete();
+                        try {
+                            // 发送完成事件
+                            emitter.send(SseEmitter.event()
+                                    .name("complete")
+                                    .data(new ChatResponse("", true)));
+                            
+                            log.debug("SSE流正常结束");
+                            // 短暂延迟确保数据发送完成
+                            Thread.sleep(50);
+                            emitter.complete();
+                        } catch (Exception e) {
+                            log.warn("发送流结束信号失败，强制关闭连接", e);
+                            emitter.complete();
+                        }
                     }
                     
                 }
@@ -316,10 +349,20 @@ public class StreamAiService {
             
             // 发送完成信号
             if (completed.compareAndSet(false, true)) {
-                emitter.send(SseEmitter.event()
-                    .name("complete")
-                    .data(new ChatResponse("", true)));
-                emitter.complete();
+                try {
+                    // 发送完成事件
+                    emitter.send(SseEmitter.event()
+                        .name("complete")
+                        .data(new ChatResponse("", true)));
+                    
+                    log.debug("模拟SSE流完成");
+                    // 短暂延迟确保数据发送完成
+                    Thread.sleep(50);
+                    emitter.complete();
+                } catch (Exception e) {
+                    log.warn("发送模拟完成信号失败，强制关闭连接", e);
+                    emitter.complete();
+                }
             }
             
         } catch (InterruptedException e) {
