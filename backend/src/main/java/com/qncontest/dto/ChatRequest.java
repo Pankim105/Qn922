@@ -7,25 +7,22 @@ import java.util.List;
 public class ChatRequest {
     
     @NotBlank(message = "消息内容不能为空")
-    @Size(max = 2000, message = "消息长度不能超过2000个字符")
+    @Size(max = 4000, message = "消息内容不能超过4000个字符")
     private String message;
     
+    private String sessionId;
+    
+    private List<ChatHistoryMessage> history;
+    
+    @Size(max = 1000, message = "系统提示不能超过1000个字符")
     private String systemPrompt;
     
-    private String sessionId; // 会话ID，用于识别不同的对话会话
-    
-    private List<ChatMessage> history; // 对话历史
-    
-    // Constructors
+    // 构造函数
     public ChatRequest() {}
     
-    public ChatRequest(String message) {
+    public ChatRequest(String message, String sessionId) {
         this.message = message;
-    }
-    
-    public ChatRequest(String message, String systemPrompt) {
-        this.message = message;
-        this.systemPrompt = systemPrompt;
+        this.sessionId = sessionId;
     }
     
     // Getters and Setters
@@ -37,14 +34,6 @@ public class ChatRequest {
         this.message = message;
     }
     
-    public String getSystemPrompt() {
-        return systemPrompt;
-    }
-    
-    public void setSystemPrompt(String systemPrompt) {
-        this.systemPrompt = systemPrompt;
-    }
-    
     public String getSessionId() {
         return sessionId;
     }
@@ -53,22 +42,30 @@ public class ChatRequest {
         this.sessionId = sessionId;
     }
     
-    public List<ChatMessage> getHistory() {
+    public List<ChatHistoryMessage> getHistory() {
         return history;
     }
     
-    public void setHistory(List<ChatMessage> history) {
+    public void setHistory(List<ChatHistoryMessage> history) {
         this.history = history;
     }
     
-    // 内部类：表示对话消息
-    public static class ChatMessage {
+    public String getSystemPrompt() {
+        return systemPrompt;
+    }
+    
+    public void setSystemPrompt(String systemPrompt) {
+        this.systemPrompt = systemPrompt;
+    }
+    
+    // 内部类用于表示历史消息
+    public static class ChatHistoryMessage {
         private String role; // "user" 或 "assistant"
         private String content;
         
-        public ChatMessage() {}
+        public ChatHistoryMessage() {}
         
-        public ChatMessage(String role, String content) {
+        public ChatHistoryMessage(String role, String content) {
             this.role = role;
             this.content = content;
         }

@@ -1,173 +1,191 @@
 package com.qncontest.service;
 
-import com.qncontest.dto.ChatRequest.ChatMessage;
+import com.qncontest.entity.ChatMessage;
+import com.qncontest.entity.ChatSession;
+import com.qncontest.entity.User;
+import com.qncontest.repository.ChatMessageRepository;
+import com.qncontest.repository.ChatSessionRepository;
+import com.qncontest.dto.ChatResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
-/**
- * 聊天会话管理服务
- * 管理用户的对话历史，支持会话过期清理
- */
 @Service
+@Transactional
 public class ChatSessionService {
     
-    private static final Logger log = LoggerFactory.getLogger(ChatSessionService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ChatSessionService.class);
     
-    // 会话过期时间（30分钟）
-    private static final long SESSION_TIMEOUT_MINUTES = 30;
+    @Autowired
+    private ChatSessionRepository chatSessionRepository;
     
-    // 每个会话最大保留的对话记录数（避免过长的上下文）
-    private static final int MAX_HISTORY_SIZE = 20;
+    @Autowired
+    private ChatMessageRepository chatMessageRepository;
     
-    // 存储用户会话的对话历史
-    // Key: userId:sessionId, Value: 会话信息
-    private final Map<String, ChatSession> sessions = new ConcurrentHashMap<>();
-    
-    // 定时清理器
-    private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread thread = new Thread(r, "ChatSession-Cleanup");
-        thread.setDaemon(true);
-        return thread;
-    });
-    
-    public ChatSessionService() {
-        // 每5分钟清理一次过期会话
-        cleanupExecutor.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
+    /**
+     * 获取用户的所有聊天会话
+     */
+    @Transactional(readOnly = true)
+    public List<ChatResponse.SessionInfo> getUserSessions(User user) {
+        logger.info("Fetching sessions for user: {} (ID: {})", user.getUsername(), user.getId());
+        
+        // 使用预加载消息的查询，避免N+1问题
+        List<ChatSession> sessions = chatSessionRepository.findByUserWithMessages(user);
+        logger.info("Found {} raw sessions from database", sessions.size());
+        
+        List<ChatResponse.SessionInfo> sessionInfos = sessions.stream()
+                .map(session -> {
+                    int messageCount = session.getMessages() != null ? session.getMessages().size() : 0;
+                    logger.debug("Session {}: title='{}', messages={}", 
+                        session.getSessionId(), session.getTitle(), messageCount);
+                    return new ChatResponse.SessionInfo(
+                        session.getSessionId(),
+                        session.getTitle(),
+                        session.getCreatedAt(),
+                        session.getUpdatedAt(),
+                        messageCount
+                    );
+                })
+                .collect(Collectors.toList());
+                
+        logger.info("Returning {} session infos", sessionInfos.size());
+        return sessionInfos;
     }
     
     /**
-     * 获取会话的对话历史
+     * 获取或创建聊天会话
      */
-    public List<ChatMessage> getSessionHistory(String userId, String sessionId) {
-        String sessionKey = getSessionKey(userId, sessionId);
-        ChatSession session = sessions.get(sessionKey);
-        
-        if (session == null || session.isExpired()) {
-            return new ArrayList<>();
+    public ChatSession getOrCreateSession(String sessionId, User user) {
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            // 创建新会话
+            sessionId = generateSessionId();
         }
         
-        // 更新访问时间
-        session.updateLastAccess();
-        return new ArrayList<>(session.getHistory());
-    }
-    
-    /**
-     * 添加用户消息到会话历史
-     */
-    public void addUserMessage(String userId, String sessionId, String message) {
-        addMessage(userId, sessionId, new ChatMessage("user", message));
-    }
-    
-    /**
-     * 添加助手消息到会话历史
-     */
-    public void addAssistantMessage(String userId, String sessionId, String message) {
-        addMessage(userId, sessionId, new ChatMessage("assistant", message));
-    }
-    
-    /**
-     * 添加消息到会话历史
-     */
-    private void addMessage(String userId, String sessionId, ChatMessage message) {
-        String sessionKey = getSessionKey(userId, sessionId);
-        ChatSession session = sessions.computeIfAbsent(sessionKey, k -> new ChatSession());
+        Optional<ChatSession> existingSession = chatSessionRepository.findBySessionIdAndUser(sessionId, user);
+        if (existingSession.isPresent()) {
+            return existingSession.get();
+        }
         
-        session.addMessage(message);
-        session.updateLastAccess();
+        // 创建新会话
+        ChatSession newSession = new ChatSession(sessionId, "新对话", user);
+        return chatSessionRepository.save(newSession);
+    }
+    
+    /**
+     * 获取会话的所有消息
+     */
+    @Transactional(readOnly = true)
+    public List<ChatResponse.MessageInfo> getSessionMessages(String sessionId, User user) {
+        Optional<ChatSession> sessionOpt = chatSessionRepository.findBySessionIdAndUser(sessionId, user);
+        if (sessionOpt.isEmpty()) {
+            return List.of();
+        }
         
-        log.debug("添加消息到会话 {}: {} - {}", sessionKey, message.getRole(), 
-                message.getContent().substring(0, Math.min(50, message.getContent().length())));
-    }
-    
-    /**
-     * 清空指定会话的历史
-     */
-    public void clearSession(String userId, String sessionId) {
-        String sessionKey = getSessionKey(userId, sessionId);
-        sessions.remove(sessionKey);
-        log.info("清空会话: {}", sessionKey);
-    }
-    
-    /**
-     * 清空用户的所有会话
-     */
-    public void clearUserSessions(String userId) {
-        sessions.entrySet().removeIf(entry -> entry.getKey().startsWith(userId + ":"));
-        log.info("清空用户所有会话: {}", userId);
-    }
-    
-    /**
-     * 获取会话统计信息
-     */
-    public Map<String, Object> getSessionStats() {
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("totalSessions", sessions.size());
-        stats.put("activeSessions", sessions.values().stream().mapToLong(s -> s.isExpired() ? 0 : 1).sum());
-        return stats;
-    }
-    
-    /**
-     * 清理过期会话
-     */
-    private void cleanupExpiredSessions() {
-        int initialSize = sessions.size();
-        sessions.entrySet().removeIf(entry -> entry.getValue().isExpired());
-        int cleanedUp = initialSize - sessions.size();
+        ChatSession session = sessionOpt.get();
+        List<ChatMessage> messages = chatMessageRepository.findByChatSessionOrderBySequenceNumberAsc(session);
         
-        if (cleanedUp > 0) {
-            log.info("清理了 {} 个过期会话，当前活跃会话数: {}", cleanedUp, sessions.size());
+        return messages.stream()
+                .map(msg -> new ChatResponse.MessageInfo(
+                    msg.getId(),
+                    msg.getRole().name().toLowerCase(),
+                    msg.getContent(),
+                    msg.getSequenceNumber(),
+                    msg.getCreatedAt()
+                ))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 保存用户消息
+     */
+    public ChatMessage saveUserMessage(ChatSession session, String content) {
+        Integer nextSequenceNumber = getNextSequenceNumber(session);
+        ChatMessage userMessage = new ChatMessage(session, ChatMessage.MessageRole.USER, content, nextSequenceNumber);
+        return chatMessageRepository.save(userMessage);
+    }
+    
+    /**
+     * 保存AI消息
+     */
+    public ChatMessage saveAiMessage(ChatSession session, String content) {
+        Integer nextSequenceNumber = getNextSequenceNumber(session);
+        ChatMessage aiMessage = new ChatMessage(session, ChatMessage.MessageRole.ASSISTANT, content, nextSequenceNumber);
+        return chatMessageRepository.save(aiMessage);
+    }
+    
+    /**
+     * 更新会话标题
+     */
+    public void updateSessionTitle(ChatSession session, String title) {
+        if (title != null && !title.trim().isEmpty()) {
+            session.setTitle(title.length() > 50 ? title.substring(0, 50) + "..." : title);
+            chatSessionRepository.save(session);
         }
     }
     
-    private String getSessionKey(String userId, String sessionId) {
-        return userId + ":" + (sessionId != null ? sessionId : "default");
+    /**
+     * 获取会话及其消息（避免懒加载异常）
+     */
+    @Transactional(readOnly = true)
+    public ChatSession getSessionWithMessages(String sessionId) {
+        return chatSessionRepository.findBySessionIdWithMessages(sessionId);
     }
     
     /**
-     * 内部会话类
+     * 删除会话
      */
-    private static class ChatSession {
-        private final List<ChatMessage> history = new ArrayList<>();
-        private long lastAccessTime = System.currentTimeMillis();
-        
-        public List<ChatMessage> getHistory() {
-            return history;
+    public boolean deleteSession(String sessionId, User user) {
+        Optional<ChatSession> sessionOpt = chatSessionRepository.findBySessionIdAndUser(sessionId, user);
+        if (sessionOpt.isEmpty()) {
+            return false;
         }
         
-        public void addMessage(ChatMessage message) {
-            history.add(message);
-            
-            // 如果历史记录过长，移除最早的记录（但保留第一条系统消息）
-            while (history.size() > MAX_HISTORY_SIZE) {
-                // 找到第一个非系统消息并移除
-                for (int i = 0; i < history.size(); i++) {
-                    if (!"system".equals(history.get(i).getRole())) {
-                        history.remove(i);
-                        break;
-                    }
-                }
-                // 如果全是系统消息，移除最后一个
-                if (history.size() > MAX_HISTORY_SIZE) {
-                    history.remove(history.size() - 1);
-                }
-            }
+        ChatSession session = sessionOpt.get();
+        
+        // 删除所有消息
+        chatMessageRepository.deleteByChatSession(session);
+        
+        // 删除会话
+        chatSessionRepository.delete(session);
+        
+        logger.info("Deleted chat session {} for user {}", sessionId, user.getUsername());
+        return true;
+    }
+    
+    /**
+     * 获取会话的历史消息（用于AI上下文）
+     */
+    @Transactional(readOnly = true)
+    public List<ChatMessage> getSessionHistory(ChatSession session, int maxMessages) {
+        List<ChatMessage> allMessages = chatMessageRepository.findByChatSessionOrderBySequenceNumberAsc(session);
+        
+        // 如果消息数量超过限制，只取最近的消息
+        if (allMessages.size() > maxMessages) {
+            return allMessages.subList(allMessages.size() - maxMessages, allMessages.size());
         }
         
-        public void updateLastAccess() {
-            this.lastAccessTime = System.currentTimeMillis();
-        }
-        
-        public boolean isExpired() {
-            return System.currentTimeMillis() - lastAccessTime > TimeUnit.MINUTES.toMillis(SESSION_TIMEOUT_MINUTES);
-        }
+        return allMessages;
+    }
+    
+    /**
+     * 获取下一个序列号
+     */
+    private Integer getNextSequenceNumber(ChatSession session) {
+        Integer maxSequenceNumber = chatMessageRepository.findMaxSequenceNumberBySession(session);
+        return maxSequenceNumber + 1;
+    }
+    
+    /**
+     * 生成会话ID
+     */
+    private String generateSessionId() {
+        return "session_" + System.currentTimeMillis() + "_" + 
+               Long.toHexString(System.nanoTime()).substring(0, 8);
     }
 }
-
-

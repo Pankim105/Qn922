@@ -70,6 +70,8 @@ public class SecurityConfig {
                 .accessDeniedHandler(accessDeniedHandler))
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // 启用异步请求支持
+            .requestCache(cache -> cache.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/test/public").permitAll()
@@ -80,11 +82,9 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**").permitAll()
                 .anyRequest().authenticated());
         
-        // 添加JWT过滤器
+        // 添加过滤器
+        http.addFilterBefore(sseExceptionFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        
-        // 添加SSE异常过滤器（在所有安全过滤器之前）
-        http.addFilterAfter(sseExceptionFilter, org.springframework.web.filter.CorsFilter.class);
         
         // 配置认证提供者
         http.authenticationProvider(authenticationProvider());

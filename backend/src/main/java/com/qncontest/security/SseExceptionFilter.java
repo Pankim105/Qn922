@@ -1,103 +1,113 @@
 package com.qncontest.security;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.access.AccessDeniedException;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * SSE异常处理过滤器
- * 处理SSE流中断后可能产生的异常，避免不必要的错误日志
+ * SSE专用异常处理过滤器
+ * 用于处理SSE连接中的认证异常，确保返回适当的错误响应
  */
 @Component
-@Order(1) // 确保在其他过滤器之前执行
-public class SseExceptionFilter extends OncePerRequestFilter {
+@Order(1) // 确保在JWT过滤器之前执行
+public class SseExceptionFilter implements Filter {
     
     private static final Logger logger = LoggerFactory.getLogger(SseExceptionFilter.class);
     
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
-                                  FilterChain filterChain) throws ServletException, IOException {
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
         
-        String requestPath = request.getRequestURI();
-        boolean isSseRequest = requestPath != null && requestPath.contains("/chat/stream");
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
         
         try {
-            filterChain.doFilter(request, response);
+            chain.doFilter(request, response);
         } catch (Exception e) {
-            // 对于SSE相关的异常，进行特殊处理
-            if (isSseRequest) {
-                handleSseException(request, response, e);
+            // 检查是否是异步调度的正常情况
+            boolean isAsyncDispatch = httpRequest.getDispatcherType() == jakarta.servlet.DispatcherType.ASYNC;
+            boolean isSSERequest = isSseRequest(httpRequest);
+            
+            if (isAsyncDispatch && isSSERequest) {
+                // SSE异步调度的正常情况，只记录DEBUG级别日志
+                logger.debug("SSE async dispatch completed for URI: {}", httpRequest.getRequestURI());
+                return;
+            }
+            
+            logger.error("Exception in filter chain for URI: {}", httpRequest.getRequestURI(), e);
+            
+            // 检查响应是否已经提交
+            if (httpResponse.isCommitted()) {
+                logger.warn("Response already committed, cannot send error response for URI: {}", httpRequest.getRequestURI());
+                return;
+            }
+            
+            // 如果是SSE请求，返回SSE格式的错误
+            if (isSSERequest) {
+                handleSseError(httpResponse, e);
             } else {
-                // 非SSE请求，重新抛出异常让其他处理器处理
-                throw e;
+                handleJsonError(httpResponse, e);
             }
         }
     }
     
-    private void handleSseException(HttpServletRequest request, HttpServletResponse response, Exception e) 
-            throws IOException {
+    /**
+     * 判断是否为SSE请求
+     */
+    private boolean isSseRequest(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String accept = request.getHeader("Accept");
         
-        String method = request.getMethod();
-        String path = request.getRequestURI();
+        return uri.contains("/stream") || 
+               (accept != null && accept.contains("text/event-stream"));
+    }
+    
+    /**
+     * 处理SSE错误
+     */
+    private void handleSseError(HttpServletResponse response, Exception e) throws IOException {
+        response.setContentType("text/event-stream");
+        response.setCharacterEncoding("UTF-8");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         
-        // 检查是否是异步请求相关的异常
-        boolean isAsyncError = e instanceof AsyncRequestTimeoutException ||
-                              (e.getCause() != null && e.getCause() instanceof AsyncRequestTimeoutException) ||
-                              e.getMessage() != null && e.getMessage().contains("async");
+        // 设置SSE相关的头部
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
         
-        if (response.isCommitted()) {
-            // 响应已提交，这在SSE中是正常的，只记录DEBUG日志
-            if (isAsyncError || e instanceof AccessDeniedException) {
-                // 对于异步超时或认证失败，这是预期的行为，使用DEBUG级别
-                logger.debug("SSE response already committed for {} {} (expected behavior): {}", 
-                            method, path, e.getClass().getSimpleName());
-            } else {
-                // 其他异常，记录为WARN
-                logger.warn("SSE response already committed for {} {}, exception: {}", 
-                           method, path, e.getMessage());
-            }
-            return;
-        }
+        String errorMessage = "认证失败，请重新登录";
+        String sseError = String.format("event: error\ndata: {\"error\":\"%s\"}\n\n", errorMessage);
         
-        if (e instanceof AccessDeniedException) {
-            // SSE访问拒绝异常，可能是连接中断后的异步请求
-            logger.debug("SSE access denied for {} {} (possibly after connection closed): {}", 
-                        method, path, e.getMessage());
-            
-            // 只有在响应未提交时才返回401
-            if (!response.isCommitted()) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"SSE connection requires authentication\"}");
-            }
-            
-        } else if (isAsyncError) {
-            // 异步请求超时，这在SSE中是正常的
-            logger.debug("SSE async timeout for {} {} (normal behavior): {}", 
-                        method, path, e.getMessage());
-            
-            // 不需要特殊处理，让请求正常结束
-            
-        } else {
-            // 其他SSE异常
-            logger.warn("SSE exception for {} {}: {} - {}", 
-                       method, path, e.getClass().getSimpleName(), e.getMessage());
-            
-            if (!response.isCommitted()) {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"SSE Error\",\"message\":\"Stream connection error\"}");
-            }
-        }
+        response.getWriter().write(sseError);
+        response.getWriter().flush();
+    }
+    
+    /**
+     * 处理JSON错误
+     */
+    private void handleJsonError(HttpServletResponse response, Exception e) throws IOException {
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        
+        Map<String, Object> errorBody = new HashMap<>();
+        errorBody.put("success", false);
+        errorBody.put("message", "认证失败，请重新登录");
+        errorBody.put("error", e.getMessage());
+        
+        ObjectMapper mapper = new ObjectMapper();
+        response.getWriter().write(mapper.writeValueAsString(errorBody));
+        response.getWriter().flush();
     }
 }

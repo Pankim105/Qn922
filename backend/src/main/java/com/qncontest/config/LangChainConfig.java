@@ -1,78 +1,81 @@
 package com.qncontest.config;
 
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.dashscope.QwenChatModel;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.dashscope.QwenEmbeddingModel;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.StreamingResponseHandler;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.model.dashscope.QwenStreamingChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * LangChain4j 配置类
- */
+import java.util.List;
+
 @Configuration
-@ConditionalOnProperty(name = "langchain4j.dashscope.chat-model.api-key")
 public class LangChainConfig {
     
-    private static final Logger log = LoggerFactory.getLogger(LangChainConfig.class);
+    private static final Logger logger = LoggerFactory.getLogger(LangChainConfig.class);
     
-    @Value("${langchain4j.dashscope.chat-model.api-key:}")
-    private String apiKey;
+    @Value("${langchain4j.dashscope.api-key:}")
+    private String dashscopeApiKey;
     
-    @Value("${langchain4j.dashscope.chat-model.model-name:qwen-plus}")
-    private String chatModelName;
+    @Value("${langchain4j.dashscope.model-name:qwen-plus}")
+    private String modelName;
     
-    @Value("${langchain4j.dashscope.chat-model.temperature:0.7}")
-    private Double temperature;
+    @Value("${langchain4j.dashscope.temperature:0.7}")
+    private Float temperature;
     
-    @Value("${langchain4j.dashscope.chat-model.max-tokens:2000}")
+    @Value("${langchain4j.dashscope.max-tokens:2000}")
     private Integer maxTokens;
     
-    @Value("${langchain4j.dashscope.embedding-model.model-name:text-embedding-v2}")
-    private String embeddingModelName;
-    
-    /**
-     * 配置聊天模型
-     */
     @Bean
-    @ConditionalOnProperty(name = "langchain4j.dashscope.chat-model.api-key")
-    public ChatLanguageModel chatLanguageModel() {
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            log.warn("DashScope API Key 未配置，LangChain4j 聊天模型不可用");
-            return null;
+    public StreamingChatLanguageModel streamingChatLanguageModel() {
+        if (dashscopeApiKey == null || dashscopeApiKey.trim().isEmpty()) {
+            logger.warn("DashScope API key is not configured. Using mock model for development.");
+            return new MockStreamingChatLanguageModel();
         }
         
-        log.info("初始化 LangChain4j 聊天模型: {}", chatModelName);
+        logger.info("Initializing DashScope streaming chat model with model: {}, temperature: {}, maxTokens: {}", 
+                   modelName, temperature, maxTokens);
         
-        return QwenChatModel.builder()
-                .apiKey(apiKey)
-                .modelName(chatModelName)
-                .temperature(temperature.floatValue())
+        return QwenStreamingChatModel.builder()
+                .apiKey(dashscopeApiKey)
+                .modelName(modelName)
+                .temperature(temperature)
                 .maxTokens(maxTokens)
-                .topP(0.8)
                 .build();
     }
     
     /**
-     * 配置嵌入模型
+     * Mock implementation for development when API key is not available
      */
-    @Bean
-    @ConditionalOnProperty(name = "langchain4j.dashscope.chat-model.api-key")
-    public EmbeddingModel embeddingModel() {
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            log.warn("DashScope API Key 未配置，LangChain4j 嵌入模型不可用");
-            return null;
+    private static class MockStreamingChatLanguageModel implements StreamingChatLanguageModel {
+        
+        @Override
+        public void generate(List<ChatMessage> messages, StreamingResponseHandler<AiMessage> handler) {
+            // 模拟流式响应
+            String mockResponse = "这是一个模拟的AI回复。当前使用的是开发模式，因为没有配置有效的API密钥。请配置langchain.dashscope.api-key以使用真实的AI服务。";
+            
+            // 模拟分块传输
+            String[] chunks = mockResponse.split("。");
+            
+            new Thread(() -> {
+                try {
+                    for (String chunk : chunks) {
+                        if (!chunk.trim().isEmpty()) {
+                            handler.onNext(chunk + "。");
+                            Thread.sleep(200); // 模拟网络延迟
+                        }
+                    }
+                    handler.onComplete(null);
+                } catch (InterruptedException e) {
+                    handler.onError(e);
+                }
+            }).start();
         }
-        
-        log.info("初始化 LangChain4j 嵌入模型: {}", embeddingModelName);
-        
-        return QwenEmbeddingModel.builder()
-                .apiKey(apiKey)
-                .modelName(embeddingModelName)
-                .build();
     }
 }

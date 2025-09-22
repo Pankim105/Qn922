@@ -44,33 +44,35 @@ INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role`, `created_at
 INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role`, `created_at`, `updated_at`) VALUES
 ('testuser', 'test@qncontest.com', '$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'USER', NOW(), NOW());
 
+-- 删除已存在的聊天表（如果存在）
+DROP TABLE IF EXISTS `chat_messages`;
+DROP TABLE IF EXISTS `chat_sessions`;
+
 -- 创建聊天会话表
-CREATE TABLE IF NOT EXISTS `chat_sessions` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
+CREATE TABLE `chat_sessions` (
   `session_id` varchar(255) NOT NULL,
-  `user_id` varchar(255) NOT NULL,
-  `title` varchar(500),
-  `created_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `is_active` bit(1) NOT NULL DEFAULT b'1',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `UK_session_user` (`session_id`, `user_id`),
-  INDEX `IDX_user_id_updated` (`user_id`, `updated_at`)
+  `title` varchar(500) NOT NULL,
+  `user_id` bigint NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  PRIMARY KEY (`session_id`),
+  KEY `FK_chat_sessions_user_id` (`user_id`),
+  KEY `IDX_user_updated` (`user_id`, `updated_at`),
+  CONSTRAINT `FK_chat_sessions_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 创建聊天消息表
-CREATE TABLE IF NOT EXISTS `chat_messages` (
+CREATE TABLE `chat_messages` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `session_id` bigint NOT NULL,
-  `role` enum('user','assistant','system') NOT NULL,
+  `session_id` varchar(255) NOT NULL,
+  `role` enum('USER','ASSISTANT') NOT NULL,
   `content` longtext NOT NULL,
-  `tokens` int DEFAULT NULL,
   `sequence_number` int NOT NULL,
-  `created_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `created_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_chat_messages_session` (`session_id`),
   KEY `IDX_session_sequence` (`session_id`, `sequence_number`),
-  CONSTRAINT `FK_chat_messages_session` FOREIGN KEY (`session_id`) REFERENCES `chat_sessions` (`id`) ON DELETE CASCADE
+  CONSTRAINT `FK_chat_messages_session` FOREIGN KEY (`session_id`) REFERENCES `chat_sessions` (`session_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 显示创建的表

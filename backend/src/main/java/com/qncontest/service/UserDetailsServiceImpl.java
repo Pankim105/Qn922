@@ -23,4 +23,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         
         return user;
     }
+    
+    /**
+     * 根据用户名查找用户实体
+     */
+    @Transactional(readOnly = true)
+    public User findUserByUsername(String username) {
+        return userRepository.findByUsername(username).orElse(null);
+    }
 }

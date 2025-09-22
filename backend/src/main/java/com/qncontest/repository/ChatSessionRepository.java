@@ -1,48 +1,47 @@
 package com.qncontest.repository;
 
 import com.qncontest.entity.ChatSession;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.qncontest.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ChatSessionRepository extends JpaRepository<ChatSession, Long> {
+public interface ChatSessionRepository extends JpaRepository<ChatSession, String> {
     
     /**
-     * 根据会话ID和用户ID查找会话
+     * 根据用户查找所有聊天会话，按更新时间降序排列
      */
-    Optional<ChatSession> findBySessionIdAndUserId(String sessionId, String userId);
+    List<ChatSession> findByUserOrderByUpdatedAtDesc(User user);
     
     /**
-     * 查找用户的所有活跃会话，按更新时间倒序
+     * 根据会话ID和用户查找会话
      */
-    List<ChatSession> findByUserIdAndIsActiveTrueOrderByUpdatedAtDesc(String userId);
+    Optional<ChatSession> findBySessionIdAndUser(String sessionId, User user);
     
     /**
-     * 分页查找用户的会话
+     * 删除用户的指定会话
      */
-    Page<ChatSession> findByUserIdAndIsActiveTrueOrderByUpdatedAtDesc(String userId, Pageable pageable);
+    void deleteBySessionIdAndUser(String sessionId, User user);
     
     /**
-     * 查找指定时间之前的非活跃会话（用于清理）
+     * 获取用户的会话数量
      */
-    @Query("SELECT cs FROM ChatSession cs WHERE cs.updatedAt < :cutoffTime AND cs.isActive = true")
-    List<ChatSession> findInactiveSessionsBefore(@Param("cutoffTime") LocalDateTime cutoffTime);
+    long countByUser(User user);
     
     /**
-     * 统计用户的会话数量
+     * 查询用户的会话列表，包含消息数量
      */
-    long countByUserIdAndIsActiveTrue(String userId);
+    @Query("SELECT cs FROM ChatSession cs LEFT JOIN FETCH cs.messages WHERE cs.user = :user ORDER BY cs.updatedAt DESC")
+    List<ChatSession> findByUserWithMessages(@Param("user") User user);
     
     /**
-     * 删除用户的所有会话
+     * 根据会话ID查找会话，并预加载消息
      */
-    void deleteByUserId(String userId);
+    @Query("SELECT cs FROM ChatSession cs LEFT JOIN FETCH cs.messages WHERE cs.sessionId = :sessionId")
+    ChatSession findBySessionIdWithMessages(@Param("sessionId") String sessionId);
 }

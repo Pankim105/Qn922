@@ -3,9 +3,6 @@ package com.qncontest.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-/**
- * 聊天消息实体
- */
 @Entity
 @Table(name = "chat_messages")
 public class ChatMessage {
@@ -15,53 +12,85 @@ public class ChatMessage {
     private Long id;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "session_id", referencedColumnName = "id")
+    @JoinColumn(name = "session_id", nullable = false, referencedColumnName = "sessionId")
     private ChatSession chatSession;
     
-    @Column(name = "role", nullable = false)
-    private String role; // "user", "assistant", "system"
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private MessageRole role;
     
-    @Column(name = "content", columnDefinition = "TEXT", nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
     
-    @Column(name = "tokens")
-    private Integer tokens; // 消息的token数量
+    @Column(name = "sequence_number", nullable = false)
+    private Integer sequenceNumber;
     
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
-    @Column(name = "sequence_number")
-    private Integer sequenceNumber; // 消息在会话中的序号
+    public enum MessageRole {
+        USER, ASSISTANT
+    }
     
     // 构造函数
-    public ChatMessage() {}
-    
-    public ChatMessage(ChatSession chatSession, String role, String content) {
-        this.chatSession = chatSession;
-        this.role = role;
-        this.content = content;
+    public ChatMessage() {
         this.createdAt = LocalDateTime.now();
     }
     
+    public ChatMessage(ChatSession chatSession, MessageRole role, String content, Integer sequenceNumber) {
+        this();
+        this.chatSession = chatSession;
+        this.role = role;
+        this.content = content;
+        this.sequenceNumber = sequenceNumber;
+    }
+    
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
     
-    public ChatSession getChatSession() { return chatSession; }
-    public void setChatSession(ChatSession chatSession) { this.chatSession = chatSession; }
+    public void setId(Long id) {
+        this.id = id;
+    }
     
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+    public ChatSession getChatSession() {
+        return chatSession;
+    }
     
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
+    public void setChatSession(ChatSession chatSession) {
+        this.chatSession = chatSession;
+    }
     
-    public Integer getTokens() { return tokens; }
-    public void setTokens(Integer tokens) { this.tokens = tokens; }
+    public MessageRole getRole() {
+        return role;
+    }
     
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setRole(MessageRole role) {
+        this.role = role;
+    }
     
-    public Integer getSequenceNumber() { return sequenceNumber; }
-    public void setSequenceNumber(Integer sequenceNumber) { this.sequenceNumber = sequenceNumber; }
+    public String getContent() {
+        return content;
+    }
+    
+    public void setContent(String content) {
+        this.content = content;
+    }
+    
+    public Integer getSequenceNumber() {
+        return sequenceNumber;
+    }
+    
+    public void setSequenceNumber(Integer sequenceNumber) {
+        this.sequenceNumber = sequenceNumber;
+    }
+    
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+    
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }

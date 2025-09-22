@@ -21,6 +21,7 @@ interface ChatSession {
 
 interface EnhancedAIChatProps {
   isAuthenticated: boolean;
+  onAuthFailure?: () => void;
 }
 
 interface ChatHistoryMessage {
@@ -28,7 +29,7 @@ interface ChatHistoryMessage {
   content: string;
 }
 
-const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated }) => {
+const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated, onAuthFailure }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
@@ -70,11 +71,21 @@ const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated }) => {
 
   // 加载聊天会话列表
   const loadChatSessions = async () => {
-    if (!isAuthenticated) return;
+    console.log('loadChatSessions 被调用');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('localStorage token:', localStorage.getItem('accessToken') ? '存在' : '不存在');
     
+    if (!isAuthenticated) {
+      console.log('用户未认证，跳过加载会话列表');
+      return;
+    }
+    
+    console.log('开始加载会话列表...');
     setLoadingSessions(true);
     try {
       const token = localStorage.getItem('accessToken');
+      console.log('使用token:', token ? token.substring(0, 20) + '...' : '无token');
+      
       const response = await fetch('http://localhost:8080/api/chat/session/list', {
         method: 'GET',
         headers: {
@@ -82,16 +93,30 @@ const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated }) => {
         },
       });
 
+      console.log('会话列表响应状态:', response.status);
       if (response.ok) {
+        console.log('i am here');
         const data = await response.json();
-        setChatSessions(data.sessions || []);
+        console.log('会话列表响应数据:', JSON.stringify(data, null, 2));
+        console.log('data.data:', data.data);
+        console.log('data.data.sessions:', data.data?.sessions);
+        
+        const sessions = data.data?.sessions || [];
+        console.log('解析后的会话数组:', sessions);
+        console.log('会话数组类型:', Array.isArray(sessions));
+        console.log('会话数组长度:', sessions.length);
+        
+        setChatSessions(sessions);
+        console.log('设置会话列表完成，数量:', sessions.length);
       } else {
-        console.error('加载会话列表失败:', response.status);
+        const errorText = await response.text();
+        console.error('加载会话列表失败:', response.status, errorText);
       }
     } catch (error) {
-      console.error('加载会话列表失败:', error);
+      console.error('加载会话列表异常:', error);
     } finally {
       setLoadingSessions(false);
+      console.log('会话列表加载完成');
     }
   };
 
@@ -110,7 +135,8 @@ const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated }) => {
 
       if (response.ok) {
         const data = await response.json();
-        const sessionMessages = data.messages || [];
+        console.log('会话消息响应:', data); // 调试日志
+        const sessionMessages = data.data?.messages || [];
         
         // 转换为前端消息格式
         const convertedMessages: ChatMessage[] = sessionMessages.map((msg: any) => ({
@@ -427,9 +453,15 @@ const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated }) => {
             ) : chatSessions.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 暂无历史对话
+                <div className="text-xs mt-2">
+                  调试信息: chatSessions = {JSON.stringify(chatSessions)}
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
+                <div className="text-xs text-muted-foreground mb-2">
+                  显示 {chatSessions.length} 个会话
+                </div>
                 {chatSessions.map((session) => (
                   <div
                     key={session.sessionId}

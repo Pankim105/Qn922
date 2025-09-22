@@ -107,7 +107,7 @@ public class JwtUtils {
             Claims claims = extractAllClaims(token);
             return claims.get("type", String.class);
         } catch (JwtException | IllegalArgumentException e) {
-            logger.error("Failed to extract token type: {}", e.getMessage());
+            logger.error("JWT token type extraction failed: {}", e.getMessage());
             return null;
         }
     }

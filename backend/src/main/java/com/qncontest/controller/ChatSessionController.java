@@ -1,192 +1,135 @@
 package com.qncontest.controller;
 
-import com.qncontest.entity.ChatSession;
+import com.qncontest.dto.ChatResponse;
+import com.qncontest.entity.User;
 import com.qncontest.service.ChatSessionService;
-import com.qncontest.service.IntelligentChatService;
-import com.qncontest.service.LangChainEnhancedService;
+import com.qncontest.service.UserDetailsServiceImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-/**
- * 聊天会话管理控制器
- */
 @RestController
 @RequestMapping("/chat/session")
 @CrossOrigin(origins = "*", maxAge = 3600)
-@PreAuthorize("isAuthenticated()")
 public class ChatSessionController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ChatSessionController.class);
     
     @Autowired
     private ChatSessionService chatSessionService;
     
     @Autowired
-    private IntelligentChatService intelligentChatService;
-    
-    @Autowired(required = false)
-    private LangChainEnhancedService langChainEnhancedService;
+    private UserDetailsServiceImpl userDetailsService;
     
     /**
-     * 获取用户的所有会话列表
+     * 获取用户的聊天会话列表
      */
     @GetMapping("/list")
-    public ResponseEntity<Map<String, Object>> getUserSessions() {
-        String currentUser = getCurrentUsername();
-        if (currentUser == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "用户认证失败"));
+    public ResponseEntity<ChatResponse> getUserSessions() {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                logger.warn("Unauthorized request to get sessions");
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+            
+            logger.info("Getting sessions for user: {}", currentUser.getUsername());
+            List<ChatResponse.SessionInfo> sessions = chatSessionService.getUserSessions(currentUser);
+            ChatResponse.SessionListData data = new ChatResponse.SessionListData(sessions);
+            
+            logger.info("Found {} sessions for user: {}", sessions.size(), currentUser.getUsername());
+            ChatResponse response = ChatResponse.success("获取会话列表成功", data);
+            logger.debug("Response data: {}", response);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Error getting user sessions", e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("获取会话列表失败"));
         }
-        
-        List<ChatSession> sessions = intelligentChatService.getUserSessions(currentUser);
-        
-        // 转换为前端需要的格式
-        List<Map<String, Object>> sessionList = sessions.stream()
-            .map(session -> {
-                Map<String, Object> sessionInfo = new HashMap<>();
-                sessionInfo.put("sessionId", session.getSessionId());
-                sessionInfo.put("title", session.getTitle() != null ? session.getTitle() : "新对话");
-                sessionInfo.put("createdAt", session.getCreatedAt().toString());
-                sessionInfo.put("updatedAt", session.getUpdatedAt().toString());
-                // 使用数据库查询获取消息数量，避免LazyInitializationException
-                sessionInfo.put("messageCount", intelligentChatService.getSessionMessageCount(session));
-                return sessionInfo;
-            })
-            .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(Map.of(
-            "sessions", sessionList,
-            "total", sessionList.size()
-        ));
     }
     
     /**
      * 获取指定会话的消息列表
      */
     @GetMapping("/{sessionId}/messages")
-    public ResponseEntity<Map<String, Object>> getSessionMessages(@PathVariable String sessionId) {
-        String currentUser = getCurrentUsername();
-        if (currentUser == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "用户认证失败"));
-        }
-        
+    public ResponseEntity<ChatResponse> getSessionMessages(@PathVariable String sessionId) {
         try {
-            List<Map<String, Object>> messages = intelligentChatService.getSessionMessages(currentUser, sessionId);
-            return ResponseEntity.ok(Map.of(
-                "sessionId", sessionId,
-                "messages", messages
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "获取会话消息失败: " + e.getMessage()));
-        }
-    }
-    
-    /**
-     * 清空指定会话的历史
-     */
-    @DeleteMapping("/{sessionId}")
-    public ResponseEntity<Map<String, Object>> clearSession(@PathVariable String sessionId) {
-        String currentUser = getCurrentUsername();
-        if (currentUser == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "用户认证失败"));
-        }
-        
-        intelligentChatService.deleteSession(currentUser, sessionId);
-        
-        return ResponseEntity.ok(Map.of(
-            "message", "会话历史已清空",
-            "sessionId", sessionId
-        ));
-    }
-    
-    /**
-     * 清空用户的所有会话
-     */
-    @DeleteMapping("/all")
-    public ResponseEntity<Map<String, Object>> clearAllSessions() {
-        String currentUser = getCurrentUsername();
-        if (currentUser == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "用户认证失败"));
-        }
-        
-        intelligentChatService.deleteAllUserSessions(currentUser);
-        
-        return ResponseEntity.ok(Map.of(
-            "message", "所有会话历史已清空",
-            "user", currentUser
-        ));
-    }
-    
-    /**
-     * 获取会话摘要
-     */
-    @GetMapping("/{sessionId}/summary")
-    public ResponseEntity<Map<String, Object>> getSessionSummary(@PathVariable String sessionId) {
-        String currentUser = getCurrentUsername();
-        if (currentUser == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "用户认证失败"));
-        }
-        
-        try {
-            ChatSession session = intelligentChatService.getOrCreateSession(currentUser, sessionId);
-            
-            String summary;
-            if (langChainEnhancedService != null && langChainEnhancedService.isAvailable()) {
-                summary = langChainEnhancedService.generateConversationSummary(session);
-            } else {
-                summary = "LangChain4j未配置，无法生成智能摘要";
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
             }
             
-            return ResponseEntity.ok(Map.of(
-                "sessionId", sessionId,
-                "summary", summary,
-                "messageCount", session.getMessages().size(),
-                "generatedBy", langChainEnhancedService != null && langChainEnhancedService.isAvailable() ? "LangChain4j" : "Simple"
-            ));
+            List<ChatResponse.MessageInfo> messages = chatSessionService.getSessionMessages(sessionId, currentUser);
+            ChatResponse.MessageListData data = new ChatResponse.MessageListData(messages);
+            
+            return ResponseEntity.ok(ChatResponse.success("获取消息列表成功", data));
             
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "获取摘要失败: " + e.getMessage()));
+            logger.error("Error getting session messages for session: " + sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("获取消息列表失败"));
         }
     }
     
     /**
-     * 获取LangChain4j状态
+     * 删除指定会话
      */
-    @GetMapping("/langchain/status")
-    public ResponseEntity<Map<String, Object>> getLangChainStatus() {
-        boolean isAvailable = langChainEnhancedService != null && langChainEnhancedService.isAvailable();
-        
-        Map<String, Object> status = new HashMap<>();
-        status.put("available", isAvailable);
-        status.put("service", isAvailable ? "LangChain4j Enhanced" : "Basic");
-        status.put("features", isAvailable ? 
-            List.of("智能摘要", "上下文筛选", "重要性分析", "对话压缩") : 
-            List.of("基础对话", "简单历史"));
-        
-        return ResponseEntity.ok(status);
+    @DeleteMapping("/{sessionId}")
+    public ResponseEntity<ChatResponse> deleteSession(@PathVariable String sessionId) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+            
+            boolean deleted = chatSessionService.deleteSession(sessionId, currentUser);
+            if (deleted) {
+                return ResponseEntity.ok(ChatResponse.success("删除会话成功"));
+            } else {
+                return ResponseEntity.status(404)
+                    .body(ChatResponse.error("会话不存在"));
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error deleting session: " + sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("删除会话失败"));
+        }
     }
     
     /**
-     * 获取会话统计信息（管理员用）
+     * 健康检查接口
      */
-    @GetMapping("/stats")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> getSessionStats() {
-        Map<String, Object> stats = chatSessionService.getSessionStats();
-        stats.put("langchain4j_available", langChainEnhancedService != null && langChainEnhancedService.isAvailable());
-        return ResponseEntity.ok(stats);
+    @GetMapping("/health")
+    public ResponseEntity<ChatResponse> health() {
+        return ResponseEntity.ok(ChatResponse.success("Chat service is running"));
     }
     
-    private String getCurrentUsername() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null ? authentication.getName() : null;
+    /**
+     * 获取当前认证用户
+     */
+    private User getCurrentUser() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                String username = authentication.getName();
+                return userDetailsService.findUserByUsername(username);
+            }
+            return null;
+        } catch (Exception e) {
+            logger.error("Error getting current user", e);
+            return null;
+        }
     }
 }
-
-

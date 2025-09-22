@@ -33,14 +33,46 @@ public class AccessDeniedHandlerJwt implements AccessDeniedHandler {
             return;
         }
         
-        // 对于SSE相关的访问拒绝，使用DEBUG级别而不是ERROR
-        if (requestPath.contains("/chat/stream")) {
-            logger.debug("SSE access denied for {} {}: {}", method, requestPath, accessDeniedException.getMessage());
-            // 对于SSE流中断后的匿名请求，直接返回，不写响应
-            return;
-        } else {
-            logger.warn("Access denied for {} {}: {}", method, requestPath, accessDeniedException.getMessage());
+        // 检查是否是异步请求
+        boolean isAsyncRequest = request.getDispatcherType() == jakarta.servlet.DispatcherType.ASYNC;
+        
+        // 对于SSE相关的访问拒绝，特殊处理
+        if (requestPath != null && requestPath.contains("/chat/stream")) {
+            // SSE请求在完成后可能会触发异步调度，这是正常的
+            if (isAsyncRequest) {
+                logger.debug("SSE async dispatch access denied (normal behavior) for {} {}", method, requestPath);
+                return;
+            } else {
+                // 检查User-Agent来判断是否是浏览器的重连请求
+                String userAgent = request.getHeader("User-Agent");
+                boolean isBrowserRequest = userAgent != null && (userAgent.contains("Mozilla") || userAgent.contains("Chrome") || userAgent.contains("Safari"));
+                
+                if (isBrowserRequest) {
+                    logger.debug("SSE browser reconnect attempt denied (expected) for {} {}", method, requestPath);
+                } else {
+                    logger.debug("SSE access denied for {} {}: {}", method, requestPath, accessDeniedException.getMessage());
+                }
+                
+                // 对于SSE请求，如果不是异步调度，返回适当的错误
+                if (!response.isCommitted()) {
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    
+                    final Map<String, Object> body = new HashMap<>();
+                    body.put("status", HttpServletResponse.SC_UNAUTHORIZED);
+                    body.put("error", "Unauthorized");
+                    body.put("message", "Authentication required for SSE connection");
+                    body.put("path", request.getServletPath());
+                    
+                    final ObjectMapper mapper = new ObjectMapper();
+                    mapper.writeValue(response.getOutputStream(), body);
+                }
+                return;
+            }
         }
+        
+        // 非SSE请求的常规处理
+        logger.warn("Access denied for {} {}: {}", method, requestPath, accessDeniedException.getMessage());
         
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);

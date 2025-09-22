@@ -22,7 +22,6 @@ C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\se
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\User.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\exception\GlobalExceptionHandler.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\ChatSession.java
-C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\IntelligentChatService.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\security\AccessDeniedHandlerJwt.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\config\AdminConfig.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\ChatSessionService.java
@@ -34,7 +33,6 @@ C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\co
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\dto\ChatRequest.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\UserDetailsServiceImpl.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\AuthService.java
-C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\LangChainEnhancedService.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\config\WebConfig.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\config\AiConfig.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\dto\ChatResponse.java
