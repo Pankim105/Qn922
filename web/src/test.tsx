@@ -5,6 +5,7 @@ import AuthModal from './components/AuthModal';
 import UserProfile from './components/UserProfile';
 import ApiTester from './components/ApiTester';
 import EnhancedAIChat from './components/EnhancedAIChat';
+import RoleplayChat from './components/RoleplayChat';
 
 interface User {
   id: number;
@@ -132,16 +133,28 @@ function Test() {
             <ApiTester isAuthenticated={isAuthenticated} />
           </div>
 
-          {/* AI对话 */}
+          {/* 角色扮演世界对话 */}
           <div className="space-y-4 lg:col-span-2 xl:col-span-1">
-            <EnhancedAIChat 
+            <RoleplayChat 
               isAuthenticated={isAuthenticated} 
+              user={user}
               onAuthFailure={() => {
                 setIsAuthenticated(false);
                 setUser(null);
               }}
             />
           </div>
+        </div>
+
+        {/* 传统AI对话 */}
+        <div className="mt-6">
+          <EnhancedAIChat 
+            isAuthenticated={isAuthenticated} 
+            onAuthFailure={() => {
+              setIsAuthenticated(false);
+              setUser(null);
+            }}
+          />
         </div>
 
         {/* 功能说明 */}
@@ -153,10 +166,10 @@ function Test() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
               <div className="space-y-3">
                 <h4 className="font-semibold text-primary flex items-center gap-2">
-                  🔐 认证功能
+                  认证功能
                 </h4>
                 <ul className="space-y-2 text-muted-foreground">
                   <li className="flex items-start gap-2">
@@ -177,10 +190,38 @@ function Test() {
                   </li>
                 </ul>
               </div>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold text-primary flex items-center gap-2">
+                  角色扮演世界
+                </h4>
+                <ul className="space-y-2 text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 flex-shrink-0"></div>
+                    异世界探险（游戏主持人）
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
+                    西方魔幻（贤者向导）
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></div>
+                    东方武侠（江湖前辈）
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-pink-500 mt-2 flex-shrink-0"></div>
+                    日式校园（校园向导）
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-2 flex-shrink-0"></div>
+                    寓教于乐（智慧导师）
+                  </li>
+                </ul>
+              </div>
               
               <div className="space-y-3">
                 <h4 className="font-semibold text-primary flex items-center gap-2">
-                  🧪 API测试
+                  API测试
                 </h4>
                 <ul className="space-y-2 text-muted-foreground">
                   <li className="flex items-start gap-2">
@@ -202,33 +243,6 @@ function Test() {
                 </ul>
               </div>
 
-              <div className="space-y-3">
-                <h4 className="font-semibold text-primary flex items-center gap-2">
-                  🤖 增强版AI对话
-                </h4>
-                <ul className="space-y-2 text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    流式对话体验
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    历史对话管理
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    会话恢复和继续
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    数据库持久化存储
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
-                    智能会话标题生成
-                  </li>
-                </ul>
-              </div>
             </div>
           </CardContent>
         </Card>

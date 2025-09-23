@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react'
-import ReactDOM from 'react-dom/client'
 import { 
   Button, 
   Card, 
@@ -59,7 +58,6 @@ import {
   Bot, 
   Loader2, 
   AlertCircle, 
-  RefreshCw, 
   History, 
   MessageSquare, 
   Trash2, 

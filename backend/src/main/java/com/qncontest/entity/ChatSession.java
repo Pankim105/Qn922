@@ -28,6 +28,34 @@ public class ChatSession {
     @OneToMany(mappedBy = "chatSession", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ChatMessage> messages = new ArrayList<>();
     
+    // 角色扮演世界相关字段
+    @Column(name = "world_type")
+    private String worldType = "general";
+    
+    @Column(name = "world_rules", columnDefinition = "JSON")
+    private String worldRules;
+    
+    @Column(name = "god_mode_rules", columnDefinition = "JSON")
+    private String godModeRules;
+    
+    @Column(name = "world_state", columnDefinition = "JSON")
+    private String worldState;
+    
+    @Column(name = "skills_state", columnDefinition = "JSON")
+    private String skillsState;
+    
+    @Column(name = "story_checkpoints", columnDefinition = "JSON")
+    private String storyCheckpoints;
+    
+    @Column(name = "stability_anchor", columnDefinition = "JSON")
+    private String stabilityAnchor;
+    
+    @Column
+    private Integer version = 1;
+    
+    @Column(length = 32)
+    private String checksum;
+    
     // 构造函数
     public ChatSession() {
         this.createdAt = LocalDateTime.now();
@@ -97,5 +125,78 @@ public class ChatSession {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+    
+    // 角色扮演世界相关的Getters and Setters
+    public String getWorldType() {
+        return worldType;
+    }
+    
+    public void setWorldType(String worldType) {
+        this.worldType = worldType;
+    }
+    
+    public String getWorldRules() {
+        return worldRules;
+    }
+    
+    public void setWorldRules(String worldRules) {
+        this.worldRules = worldRules;
+    }
+    
+    public String getGodModeRules() {
+        return godModeRules;
+    }
+    
+    public void setGodModeRules(String godModeRules) {
+        this.godModeRules = godModeRules;
+    }
+    
+    public String getWorldState() {
+        return worldState;
+    }
+    
+    public void setWorldState(String worldState) {
+        this.worldState = worldState;
+    }
+    
+    public String getSkillsState() {
+        return skillsState;
+    }
+    
+    public void setSkillsState(String skillsState) {
+        this.skillsState = skillsState;
+    }
+    
+    public String getStoryCheckpoints() {
+        return storyCheckpoints;
+    }
+    
+    public void setStoryCheckpoints(String storyCheckpoints) {
+        this.storyCheckpoints = storyCheckpoints;
+    }
+    
+    public String getStabilityAnchor() {
+        return stabilityAnchor;
+    }
+    
+    public void setStabilityAnchor(String stabilityAnchor) {
+        this.stabilityAnchor = stabilityAnchor;
+    }
+    
+    public Integer getVersion() {
+        return version;
+    }
+    
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+    
+    public String getChecksum() {
+        return checksum;
+    }
+    
+    public void setChecksum(String checksum) {
+        this.checksum = checksum;
     }
 }
