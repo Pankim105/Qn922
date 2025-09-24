@@ -55,6 +55,14 @@ public class RoleplayWorldService {
         logger.info("初始化角色扮演会话: sessionId={}, worldType={}", sessionId, worldType);
         
         try {
+            // 0. 检查是否已经初始化过
+            ChatSession existingSession = chatSessionService.getOrCreateSession(sessionId, user);
+            if (existingSession.getWorldType() != null && !existingSession.getWorldType().equals("general")) {
+                logger.info("会话已初始化过，跳过重复初始化: sessionId={}, existingWorldType={}", 
+                           sessionId, existingSession.getWorldType());
+                return;
+            }
+            
             // 1. 获取世界模板
             String defaultRules = worldTemplateService.getDefaultRules(worldType);
             String stabilityAnchorsTemplate = worldTemplateService.getStabilityAnchors(worldType);
@@ -69,24 +77,23 @@ public class RoleplayWorldService {
             String initialSkillsState = createInitialSkillsState();
             
             // 5. 更新会话
-            ChatSession session = chatSessionService.getOrCreateSession(sessionId, user);
-            session.setWorldType(worldType);
-            session.setWorldRules(mergedRules);
-            session.setGodModeRules(godModeRules);
-            session.setWorldState(initialWorldState);
-            session.setSkillsState(initialSkillsState);
-            session.setVersion(1);
-            session.setChecksum(calculateChecksum(initialWorldState));
+            existingSession.setWorldType(worldType);
+            existingSession.setWorldRules(mergedRules);
+            existingSession.setGodModeRules(godModeRules);
+            existingSession.setWorldState(initialWorldState);
+            existingSession.setSkillsState(initialSkillsState);
+            existingSession.setVersion(1);
+            existingSession.setChecksum(calculateChecksum(initialWorldState));
             
             // 6. 初始化稳定性锚点
             initializeStabilityAnchors(sessionId, worldType, stabilityAnchorsTemplate, mergedRules);
             
-            // 7. 记录初始化事件
-            recordEvent(sessionId, WorldEvent.EventType.SYSTEM_EVENT, 
-                       createEventData("session_initialized", Map.of(
-                           "worldType", worldType,
-                           "hasGodModeRules", godModeRules != null && !godModeRules.trim().isEmpty()
-                       )), 1);
+            // 7. 记录初始化事件（使用安全的序列号生成）
+            recordEventSafe(sessionId, WorldEvent.EventType.SYSTEM_EVENT, 
+                           createEventData("session_initialized", Map.of(
+                               "worldType", worldType,
+                               "hasGodModeRules", godModeRules != null && !godModeRules.trim().isEmpty()
+                           )));
             
             logger.info("角色扮演会话初始化完成: {}", sessionId);
             
@@ -354,6 +361,26 @@ public class RoleplayWorldService {
             WorldEvent event = new WorldEvent(sessionId, eventType, eventData, sequence);
             event.setChecksum(DigestUtils.md5DigestAsHex(eventData.getBytes()));
             worldEventRepository.save(event);
+        } catch (Exception e) {
+            logger.warn("记录世界事件失败: sessionId={}, eventType={}", sessionId, eventType, e);
+        }
+    }
+    
+    /**
+     * 安全地记录世界事件（自动处理序列号冲突）
+     */
+    private void recordEventSafe(String sessionId, WorldEvent.EventType eventType, String eventData) {
+        try {
+            int sequence = getNextEventSequence(sessionId);
+            WorldEvent event = new WorldEvent(sessionId, eventType, eventData, sequence);
+            event.setChecksum(DigestUtils.md5DigestAsHex(eventData.getBytes()));
+            worldEventRepository.save(event);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            if (e.getMessage().contains("UK_session_sequence")) {
+                logger.warn("事件序列号冲突，跳过重复事件记录: sessionId={}, eventType={}", sessionId, eventType);
+            } else {
+                logger.warn("记录世界事件失败: sessionId={}, eventType={}", sessionId, eventType, e);
+            }
         } catch (Exception e) {
             logger.warn("记录世界事件失败: sessionId={}, eventType={}", sessionId, eventType, e);
         }

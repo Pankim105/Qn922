@@ -17,6 +17,9 @@ public class WorldTemplateResponse {
     private String questTemplates;
     private String characterTemplates;
     private String locationTemplates;
+    private String convergenceScenarios;
+    private String dmInstructions;
+    private String convergenceRules;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
@@ -33,6 +36,9 @@ public class WorldTemplateResponse {
         this.questTemplates = template.getQuestTemplates();
         this.characterTemplates = template.getCharacterTemplates();
         this.locationTemplates = template.getLocationTemplates();
+        this.convergenceScenarios = template.getConvergenceScenarios();
+        this.dmInstructions = template.getDmInstructions();
+        this.convergenceRules = template.getConvergenceRules();
         this.createdAt = template.getCreatedAt();
         this.updatedAt = template.getUpdatedAt();
     }
@@ -135,6 +141,30 @@ public class WorldTemplateResponse {
     
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    
+    public String getConvergenceScenarios() {
+        return convergenceScenarios;
+    }
+    
+    public void setConvergenceScenarios(String convergenceScenarios) {
+        this.convergenceScenarios = convergenceScenarios;
+    }
+    
+    public String getDmInstructions() {
+        return dmInstructions;
+    }
+    
+    public void setDmInstructions(String dmInstructions) {
+        this.dmInstructions = dmInstructions;
+    }
+    
+    public String getConvergenceRules() {
+        return convergenceRules;
+    }
+    
+    public void setConvergenceRules(String convergenceRules) {
+        this.convergenceRules = convergenceRules;
     }
 }
 

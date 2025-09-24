@@ -6,6 +6,11 @@ import UserProfile from './components/UserProfile';
 import ApiTester from './components/ApiTester';
 import EnhancedAIChat from './components/EnhancedAIChat';
 import RoleplayChat from './components/RoleplayChat';
+// 重新导出以便测试
+export { RoleplayChat };
+
+// 测试组件功能
+console.log('测试 RoleplayChat 组件已加载');
 
 interface User {
   id: number;

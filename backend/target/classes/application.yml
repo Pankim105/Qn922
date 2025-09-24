@@ -13,6 +13,16 @@ spring:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:qn}?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8&useUnicode=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:123456}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 120000
+      validation-timeout: 5000
+      connection-test-query: SELECT 1
+      pool-name: QnContestPool
   
   # JPA配置
   jpa:
@@ -22,12 +32,12 @@ spring:
     format-sql: true
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.MySQL8Dialect
         # 禁用严格的schema验证
         hbm2ddl:
           auto: update
-        # 禁用枚举验证
-        globally_quoted_identifiers: true
+        # 避免为标识符加反引号从而将类型名也引起来
+        globally_quoted_identifiers: false
   
   security:
     user:

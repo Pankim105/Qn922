@@ -54,6 +54,16 @@ public interface WorldEventRepository extends JpaRepository<WorldEvent, Long> {
      * 获取指定会话的事件数量
      */
     long countBySessionId(String sessionId);
+
+    /**
+     * 获取指定会话的最新事件（按序号降序）
+     */
+    Optional<WorldEvent> findTopBySessionIdOrderBySequenceDesc(String sessionId);
+
+    /**
+     * 获取指定会话和事件类型的事件（按时间降序）
+     */
+    List<WorldEvent> findBySessionIdAndEventTypeOrderByTimestampDesc(String sessionId, WorldEvent.EventType eventType);
 }
 
 

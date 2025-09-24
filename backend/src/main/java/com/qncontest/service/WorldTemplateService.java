@@ -107,6 +107,45 @@ public class WorldTemplateService {
                 .map(WorldTemplate::getQuestTemplates)
                 .orElse("{}");
     }
+    
+    /**
+     * 获取世界的收敛场景
+     */
+    public String getConvergenceScenarios(String worldType) {
+        if ("general".equals(worldType)) {
+            return "{}";
+        }
+        
+        return worldTemplateRepository.findByWorldId(worldType)
+                .map(WorldTemplate::getConvergenceScenarios)
+                .orElse("{}");
+    }
+    
+    /**
+     * 获取世界的DM指令
+     */
+    public String getDmInstructions(String worldType) {
+        if ("general".equals(worldType)) {
+            return "你是一个智能助手，可以帮助用户解答各种问题。请用友好、专业的语气回答。";
+        }
+        
+        return worldTemplateRepository.findByWorldId(worldType)
+                .map(WorldTemplate::getDmInstructions)
+                .orElse("你是一个智能助手，可以帮助用户解答各种问题。请用友好、专业的语气回答。");
+    }
+    
+    /**
+     * 获取世界的收敛规则
+     */
+    public String getConvergenceRules(String worldType) {
+        if ("general".equals(worldType)) {
+            return "{}";
+        }
+        
+        return worldTemplateRepository.findByWorldId(worldType)
+                .map(WorldTemplate::getConvergenceRules)
+                .orElse("{}");
+    }
 }
 
 

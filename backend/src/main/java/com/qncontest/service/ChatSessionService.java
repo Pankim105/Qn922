@@ -17,7 +17,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional
 public class ChatSessionService {
     
     private static final Logger logger = LoggerFactory.getLogger(ChatSessionService.class);
@@ -61,6 +60,7 @@ public class ChatSessionService {
     /**
      * 获取或创建聊天会话
      */
+    @Transactional
     public ChatSession getOrCreateSession(String sessionId, User user) {
         if (sessionId == null || sessionId.trim().isEmpty()) {
             // 创建新会话
@@ -104,6 +104,7 @@ public class ChatSessionService {
     /**
      * 保存用户消息
      */
+    @Transactional
     public ChatMessage saveUserMessage(ChatSession session, String content) {
         Integer nextSequenceNumber = getNextSequenceNumber(session);
         ChatMessage userMessage = new ChatMessage(session, ChatMessage.MessageRole.USER, content, nextSequenceNumber);
@@ -113,6 +114,7 @@ public class ChatSessionService {
     /**
      * 保存AI消息
      */
+    @Transactional
     public ChatMessage saveAiMessage(ChatSession session, String content) {
         Integer nextSequenceNumber = getNextSequenceNumber(session);
         ChatMessage aiMessage = new ChatMessage(session, ChatMessage.MessageRole.ASSISTANT, content, nextSequenceNumber);
@@ -122,6 +124,7 @@ public class ChatSessionService {
     /**
      * 更新会话标题
      */
+    @Transactional
     public void updateSessionTitle(ChatSession session, String title) {
         if (title != null && !title.trim().isEmpty()) {
             session.setTitle(title.length() > 50 ? title.substring(0, 50) + "..." : title);
@@ -140,6 +143,7 @@ public class ChatSessionService {
     /**
      * 删除会话
      */
+    @Transactional
     public boolean deleteSession(String sessionId, User user) {
         Optional<ChatSession> sessionOpt = chatSessionRepository.findBySessionIdAndUser(sessionId, user);
         if (sessionOpt.isEmpty()) {

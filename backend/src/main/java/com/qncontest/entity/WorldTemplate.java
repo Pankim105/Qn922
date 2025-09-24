@@ -38,6 +38,16 @@ public class WorldTemplate {
     @Column(name = "location_templates", columnDefinition = "JSON")
     private String locationTemplates;
     
+    // 新增缺失的字段
+    @Column(name = "convergence_scenarios", columnDefinition = "JSON")
+    private String convergenceScenarios;
+    
+    @Column(name = "dm_instructions", columnDefinition = "TEXT")
+    private String dmInstructions;
+    
+    @Column(name = "convergence_rules", columnDefinition = "JSON")
+    private String convergenceRules;
+    
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
@@ -149,6 +159,31 @@ public class WorldTemplate {
     
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    
+    // 新增字段的 Getters and Setters
+    public String getConvergenceScenarios() {
+        return convergenceScenarios;
+    }
+    
+    public void setConvergenceScenarios(String convergenceScenarios) {
+        this.convergenceScenarios = convergenceScenarios;
+    }
+    
+    public String getDmInstructions() {
+        return dmInstructions;
+    }
+    
+    public void setDmInstructions(String dmInstructions) {
+        this.dmInstructions = dmInstructions;
+    }
+    
+    public String getConvergenceRules() {
+        return convergenceRules;
+    }
+    
+    public void setConvergenceRules(String convergenceRules) {
+        this.convergenceRules = convergenceRules;
     }
 }
 

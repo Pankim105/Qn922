@@ -20,6 +20,7 @@ C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\se
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\config\AdminConfig.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\controller\RoleplayController.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\WorldState.java
+C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\DMAssessment.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\controller\AuthController.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\security\JwtUtils.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\repository\WorldTemplateRepository.java
@@ -38,6 +39,7 @@ C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\se
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\repository\ChatSessionRepository.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\repository\UserRepository.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\RefreshTokenService.java
+C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\JsonObjectConverter.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\controller\TestController.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\ChatMessage.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\dto\RoleplayRequest.java
@@ -48,8 +50,11 @@ C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\re
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\ChatSession.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\repository\WorldStateRepository.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\ChatSessionService.java
+C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\AssessmentExtractor.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\dto\ChatRequest.java
+C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\ConvergenceStatus.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\repository\WorldEventRepository.java
+C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\StringListConverter.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\UserDetailsServiceImpl.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\DiceRoll.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\WorldTemplateService.java

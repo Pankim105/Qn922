@@ -50,6 +50,25 @@ public class ChatSession {
     @Column(name = "stability_anchor", columnDefinition = "JSON")
     private String stabilityAnchor;
     
+    // 新增：评估相关字段
+    @Column(name = "assessment_history", columnDefinition = "JSON")
+    private String assessmentHistory;        // 评估历史记录
+    
+    @Column(name = "last_assessment_id")
+    private Long lastAssessmentId;           // 最后一次评估ID
+    
+    @Column(name = "convergence_progress")
+    private Double convergenceProgress;      // 当前收敛进度
+    
+    @Column(name = "active_quests", columnDefinition = "JSON")
+    private String activeQuests;             // 活跃任务列表
+    
+    @Column(name = "completed_quests", columnDefinition = "JSON")
+    private String completedQuests;          // 已完成任务列表
+    
+    @Column(name = "character_stats", columnDefinition = "JSON")
+    private String characterStats;           // 角色属性（等级、经验、金币等）
+    
     @Column
     private Integer version = 1;
     
@@ -198,5 +217,54 @@ public class ChatSession {
     
     public void setChecksum(String checksum) {
         this.checksum = checksum;
+    }
+    
+    // 新增字段的 Getters and Setters
+    public String getAssessmentHistory() {
+        return assessmentHistory;
+    }
+    
+    public void setAssessmentHistory(String assessmentHistory) {
+        this.assessmentHistory = assessmentHistory;
+    }
+    
+    public Long getLastAssessmentId() {
+        return lastAssessmentId;
+    }
+    
+    public void setLastAssessmentId(Long lastAssessmentId) {
+        this.lastAssessmentId = lastAssessmentId;
+    }
+    
+    public Double getConvergenceProgress() {
+        return convergenceProgress;
+    }
+    
+    public void setConvergenceProgress(Double convergenceProgress) {
+        this.convergenceProgress = convergenceProgress;
+    }
+    
+    public String getActiveQuests() {
+        return activeQuests;
+    }
+    
+    public void setActiveQuests(String activeQuests) {
+        this.activeQuests = activeQuests;
+    }
+    
+    public String getCompletedQuests() {
+        return completedQuests;
+    }
+    
+    public void setCompletedQuests(String completedQuests) {
+        this.completedQuests = completedQuests;
+    }
+    
+    public String getCharacterStats() {
+        return characterStats;
+    }
+    
+    public void setCharacterStats(String characterStats) {
+        this.characterStats = characterStats;
     }
 }

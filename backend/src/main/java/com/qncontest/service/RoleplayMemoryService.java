@@ -1,40 +1,49 @@
 package com.qncontest.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.store.embedding.EmbeddingMatch;
-import dev.langchain4j.store.embedding.EmbeddingStore;
+import com.qncontest.entity.ChatSession;
+import com.qncontest.entity.WorldEvent;
+import com.qncontest.entity.WorldState;
+import com.qncontest.repository.ChatSessionRepository;
+import com.qncontest.repository.WorldEventRepository;
+import com.qncontest.repository.WorldStateRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.DigestUtils;
 
+import java.time.LocalDateTime;
 import java.util.*;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 角色扮演记忆管理服务
  * 负责智能管理角色记忆、世界状态和重要事件
+ * 基于现有的ChatSession、WorldEvent、WorldState表结构
  */
 @Service
 public class RoleplayMemoryService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(RoleplayMemoryService.class);
-    
-    // 暂时使用内存存储，后续可以替换为持久化向量数据库
-    private final Map<String, List<MemoryEntry>> sessionMemories = new HashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    
-    // 如果有配置向量数据库，可以注入这些组件
-    // @Autowired(required = false)
-    // private EmbeddingModel embeddingModel;
-    
-    // @Autowired(required = false) 
-    // private EmbeddingStore<TextSegment> embeddingStore;
+
+    private final ObjectMapper objectMapper;
+
+    @Autowired
+    public RoleplayMemoryService(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    @Autowired
+    private ChatSessionRepository chatSessionRepository;
+
+    @Autowired
+    private WorldEventRepository worldEventRepository;
+
+    @Autowired
+    private WorldStateRepository worldStateRepository;
     
     /**
      * 角色记忆结构
@@ -115,31 +124,97 @@ public class RoleplayMemoryService {
      */
     public void storeMemory(String sessionId, String content, String type, double importance) {
         logger.debug("存储记忆: sessionId={}, type={}, importance={}", sessionId, type, importance);
-        
-        MemoryEntry memory = new MemoryEntry(content, type, importance);
-        
-        sessionMemories.computeIfAbsent(sessionId, k -> new ArrayList<>()).add(memory);
-        
-        // 如果记忆太多，清理低重要性的记忆
-        cleanupMemories(sessionId);
+
+        try {
+            // 1. 记录到WorldEvent中作为记忆事件
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("content", content);
+            eventData.put("type", type);
+            eventData.put("importance", importance);
+            eventData.put("timestamp", LocalDateTime.now());
+
+            WorldEvent memoryEvent = new WorldEvent();
+            memoryEvent.setSessionId(sessionId);
+            memoryEvent.setEventType(WorldEvent.EventType.SYSTEM_EVENT);
+            memoryEvent.setEventData(objectMapper.writeValueAsString(eventData));
+            memoryEvent.setSequence(getNextEventSequence(sessionId));
+            memoryEvent.setChecksum(generateChecksum(eventData));
+
+            worldEventRepository.save(memoryEvent);
+
+            // 2. 更新ChatSession中的记忆数据
+            Optional<ChatSession> sessionOpt = chatSessionRepository.findById(sessionId);
+            if (sessionOpt.isPresent()) {
+                ChatSession session = sessionOpt.get();
+
+                // 获取现有的记忆数据
+                Map<String, Object> memories = parseMemoriesFromSession(session);
+                memories.computeIfAbsent(type, k -> new ArrayList<Map<String, Object>>());
+
+                // 添加新记忆
+                Map<String, Object> newMemory = new HashMap<>();
+                newMemory.put("content", content);
+                newMemory.put("importance", importance);
+                newMemory.put("timestamp", LocalDateTime.now());
+
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> memoryList = (List<Map<String, Object>>) memories.get(type);
+                memoryList.add(newMemory);
+
+                // 清理低重要性记忆
+                cleanupMemories(memories, type);
+
+                // 保存更新后的记忆数据
+                session.setWorldState(objectMapper.writeValueAsString(memories));
+                chatSessionRepository.save(session);
+            }
+
+            logger.info("记忆存储成功: sessionId={}, type={}, content={}", sessionId, type, content);
+        } catch (Exception e) {
+            logger.error("存储记忆失败: sessionId={}, type={}", sessionId, type, e);
+        }
     }
     
     /**
      * 检索相关记忆
      */
     public List<MemoryEntry> retrieveRelevantMemories(String sessionId, String query, int maxResults) {
-        List<MemoryEntry> memories = sessionMemories.getOrDefault(sessionId, new ArrayList<>());
-        
-        if (memories.isEmpty()) {
+        try {
+            // 从ChatSession中获取记忆数据
+            Optional<ChatSession> sessionOpt = chatSessionRepository.findById(sessionId);
+            if (!sessionOpt.isPresent()) {
+                return new ArrayList<>();
+            }
+
+            ChatSession session = sessionOpt.get();
+            Map<String, Object> memories = parseMemoriesFromSession(session);
+
+            // 合并所有类型的记忆
+            List<Map<String, Object>> allMemories = new ArrayList<>();
+            for (Object memoryList : memories.values()) {
+                if (memoryList instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> typedMemoryList = (List<Map<String, Object>>) memoryList;
+                    allMemories.addAll(typedMemoryList);
+                }
+            }
+
+            if (allMemories.isEmpty()) {
+                return new ArrayList<>();
+            }
+
+            // 简单的关键词匹配（后续可以用向量相似度）
+            return allMemories.stream()
+                    .filter(memory -> isRelevant((String) memory.get("content"), query))
+                    .map(this::convertToMemoryEntry)
+                    .sorted((a, b) -> Double.compare(b.getImportance(), a.getImportance()))
+                    .limit(maxResults)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            logger.error("检索记忆失败: sessionId={}", sessionId, e);
             return new ArrayList<>();
         }
-        
-        // 简单的关键词匹配（后续可以用向量相似度）
-        return memories.stream()
-                .filter(memory -> isRelevant(memory.getContent(), query))
-                .sorted((a, b) -> Double.compare(b.getImportance(), a.getImportance()))
-                .limit(maxResults)
-                .toList();
     }
     
     /**
@@ -182,75 +257,167 @@ public class RoleplayMemoryService {
      */
     public String buildMemoryContext(String sessionId, String currentSituation) {
         List<MemoryEntry> relevantMemories = retrieveRelevantMemories(sessionId, currentSituation, 5);
-        
+
         if (relevantMemories.isEmpty()) {
             return "";
         }
-        
+
         StringBuilder context = new StringBuilder();
         context.append("## 相关记忆\n");
-        
+
         for (MemoryEntry memory : relevantMemories) {
             context.append("- **").append(memory.getType()).append("**: ")
                    .append(memory.getContent()).append("\n");
         }
-        
+
         return context.toString();
+    }
+
+    /**
+     * 获取下一个事件序列号
+     */
+    private Integer getNextEventSequence(String sessionId) {
+        Optional<WorldEvent> lastEvent = worldEventRepository.findTopBySessionIdOrderBySequenceDesc(sessionId);
+        return lastEvent.map(event -> event.getSequence() + 1).orElse(1);
+    }
+
+    /**
+     * 从ChatSession中解析记忆数据
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseMemoriesFromSession(ChatSession session) {
+        try {
+            String worldState = session.getWorldState();
+            if (worldState == null || worldState.trim().isEmpty()) {
+                return new HashMap<>();
+            }
+            return objectMapper.readValue(worldState, Map.class);
+        } catch (Exception e) {
+            logger.warn("解析记忆数据失败，使用空记忆: sessionId={}", session.getSessionId());
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * 将Map转换为MemoryEntry
+     */
+    private MemoryEntry convertToMemoryEntry(Map<String, Object> memoryMap) {
+        MemoryEntry entry = new MemoryEntry(
+            (String) memoryMap.get("content"),
+            (String) memoryMap.get("type"),
+            ((Number) memoryMap.getOrDefault("importance", 0.5)).doubleValue()
+        );
+
+        if (memoryMap.containsKey("timestamp")) {
+            try {
+                Object timestamp = memoryMap.get("timestamp");
+                if (timestamp instanceof String) {
+                    // 尝试作为字符串解析
+                    entry.setTimestamp(LocalDateTime.parse((String) timestamp).toEpochSecond(java.time.ZoneOffset.UTC) * 1000);
+                } else if (timestamp instanceof LocalDateTime) {
+                    // 直接作为 LocalDateTime 转换
+                    entry.setTimestamp(((LocalDateTime) timestamp).toEpochSecond(java.time.ZoneOffset.UTC) * 1000);
+                } else if (timestamp instanceof Long) {
+                    // 作为毫秒时间戳
+                    entry.setTimestamp((Long) timestamp);
+                } else {
+                    entry.setTimestamp(System.currentTimeMillis());
+                }
+            } catch (Exception e) {
+                entry.setTimestamp(System.currentTimeMillis());
+            }
+        }
+
+        if (memoryMap.containsKey("metadata")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> metadata = (Map<String, Object>) memoryMap.get("metadata");
+            entry.setMetadata(metadata);
+        }
+
+        return entry;
+    }
+
+    /**
+     * 清理低重要性记忆
+     */
+    private void cleanupMemories(Map<String, Object> memories, String type) {
+        if (!memories.containsKey(type)) {
+            return;
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> memoryList = (List<Map<String, Object>>) memories.get(type);
+        if (memoryList == null || memoryList.size() <= 20) { // 降低清理阈值
+            return;
+        }
+
+        // 按重要性排序，保留最重要的记忆
+        memoryList.sort((a, b) -> Double.compare(
+            ((Number) b.getOrDefault("importance", 0.5)).doubleValue(),
+            ((Number) a.getOrDefault("importance", 0.5)).doubleValue()
+        ));
+
+        // 只保留前15个最重要的记忆
+        if (memoryList.size() > 15) {
+            memoryList = memoryList.subList(0, 15);
+            memories.put(type, memoryList);
+        }
+
+        logger.debug("清理记忆完成: type={}, 保留数量={}", type, memoryList.size());
     }
     
     /**
      * 获取会话的完整记忆摘要
      */
     public String getMemorySummary(String sessionId) {
-        List<MemoryEntry> memories = sessionMemories.getOrDefault(sessionId, new ArrayList<>());
-        
-        if (memories.isEmpty()) {
-            return "暂无重要记忆";
-        }
-        
-        // 按类型分组
-        Map<String, List<MemoryEntry>> groupedMemories = new HashMap<>();
-        for (MemoryEntry memory : memories) {
-            groupedMemories.computeIfAbsent(memory.getType(), k -> new ArrayList<>()).add(memory);
-        }
-        
-        StringBuilder summary = new StringBuilder();
-        
-        for (Map.Entry<String, List<MemoryEntry>> group : groupedMemories.entrySet()) {
-            summary.append("### ").append(group.getKey()).append("\n");
-            
-            List<MemoryEntry> sortedMemories = group.getValue().stream()
-                    .sorted((a, b) -> Double.compare(b.getImportance(), a.getImportance()))
-                    .limit(3)
-                    .toList();
-                    
-            for (MemoryEntry memory : sortedMemories) {
-                summary.append("- ").append(memory.getContent()).append("\n");
+        try {
+            Optional<ChatSession> sessionOpt = chatSessionRepository.findById(sessionId);
+            if (!sessionOpt.isPresent()) {
+                return "暂无重要记忆";
             }
-            summary.append("\n");
+
+            ChatSession session = sessionOpt.get();
+            Map<String, Object> memories = parseMemoriesFromSession(session);
+
+            if (memories.isEmpty()) {
+                return "暂无重要记忆";
+            }
+
+            // 按类型分组
+            Map<String, List<Map<String, Object>>> groupedMemories = new HashMap<>();
+            for (String type : memories.keySet()) {
+                Object memoryList = memories.get(type);
+                if (memoryList instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> typedMemoryList = (List<Map<String, Object>>) memoryList;
+                    groupedMemories.put(type, typedMemoryList);
+                }
+            }
+
+            StringBuilder summary = new StringBuilder();
+
+            for (Map.Entry<String, List<Map<String, Object>>> group : groupedMemories.entrySet()) {
+                summary.append("### ").append(group.getKey()).append("\n");
+
+                List<Map<String, Object>> sortedMemories = group.getValue().stream()
+                        .sorted((a, b) -> Double.compare(
+                            ((Number) b.getOrDefault("importance", 0.5)).doubleValue(),
+                            ((Number) a.getOrDefault("importance", 0.5)).doubleValue()
+                        ))
+                        .limit(3)
+                        .collect(Collectors.toList());
+
+                for (Map<String, Object> memory : sortedMemories) {
+                    summary.append("- ").append(memory.get("content")).append("\n");
+                }
+                summary.append("\n");
+            }
+
+            return summary.toString();
+        } catch (Exception e) {
+            logger.error("获取记忆摘要失败: sessionId={}", sessionId, e);
+            return "获取记忆摘要时发生错误";
         }
-        
-        return summary.toString();
-    }
-    
-    /**
-     * 清理低重要性记忆
-     */
-    private void cleanupMemories(String sessionId) {
-        List<MemoryEntry> memories = sessionMemories.get(sessionId);
-        if (memories == null || memories.size() <= 50) {
-            return; // 记忆数量还不多，不需要清理
-        }
-        
-        // 保留重要性高的记忆
-        memories.sort((a, b) -> Double.compare(b.getImportance(), a.getImportance()));
-        
-        // 只保留前30个最重要的记忆
-        if (memories.size() > 30) {
-            memories.subList(30, memories.size()).clear();
-        }
-        
-        logger.info("清理会话记忆: sessionId={}, 保留记忆数={}", sessionId, memories.size());
     }
     
     /**
@@ -260,10 +427,10 @@ public class RoleplayMemoryService {
         if (query == null || query.trim().isEmpty()) {
             return true;
         }
-        
+
         String lowerContent = content.toLowerCase();
         String lowerQuery = query.toLowerCase();
-        
+
         // 简单的关键词匹配
         String[] queryWords = lowerQuery.split("\\s+");
         for (String word : queryWords) {
@@ -271,8 +438,113 @@ public class RoleplayMemoryService {
                 return true;
             }
         }
-        
+
         return false;
+    }
+
+    /**
+     * 更新角色关系（使用WorldEvent记录）
+     */
+    public void updateCharacterRelationship(String sessionId, String character, String relationship) {
+        String content = String.format("与%s的关系: %s", character, relationship);
+        double importance = 0.8;
+        storeMemory(sessionId, content, "CHARACTER", importance);
+
+        // 同时记录到WorldEvent
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("character", character);
+            eventData.put("relationship", relationship);
+            eventData.put("type", "RELATIONSHIP_UPDATE");
+
+            WorldEvent relationshipEvent = new WorldEvent();
+            relationshipEvent.setSessionId(sessionId);
+            relationshipEvent.setEventType(WorldEvent.EventType.CHARACTER_UPDATE);
+            relationshipEvent.setEventData(objectMapper.writeValueAsString(eventData));
+            relationshipEvent.setSequence(getNextEventSequence(sessionId));
+            relationshipEvent.setChecksum(generateChecksum(eventData));
+
+            worldEventRepository.save(relationshipEvent);
+        } catch (Exception e) {
+            logger.error("记录角色关系事件失败: sessionId={}", sessionId, e);
+        }
+    }
+
+    /**
+     * 记录世界状态变化（使用WorldEvent记录）
+     */
+    public void recordWorldStateChange(String sessionId, String change, String reason) {
+        String content = String.format("世界状态变化: %s (原因: %s)", change, reason);
+        double importance = 0.7;
+        storeMemory(sessionId, content, "WORLD_STATE", importance);
+
+        // 同时记录到WorldEvent
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("change", change);
+            eventData.put("reason", reason);
+            eventData.put("type", "WORLD_STATE_CHANGE");
+
+            WorldEvent stateEvent = new WorldEvent();
+            stateEvent.setSessionId(sessionId);
+            stateEvent.setEventType(WorldEvent.EventType.STATE_CHANGE);
+            stateEvent.setEventData(objectMapper.writeValueAsString(eventData));
+            stateEvent.setSequence(getNextEventSequence(sessionId));
+            stateEvent.setChecksum(generateChecksum(eventData));
+
+            worldEventRepository.save(stateEvent);
+        } catch (Exception e) {
+            logger.error("记录世界状态事件失败: sessionId={}", sessionId, e);
+        }
+    }
+
+    /**
+     * 获取会话的所有记忆事件
+     */
+    public List<WorldEvent> getMemoryEvents(String sessionId) {
+        return worldEventRepository.findBySessionIdAndEventTypeOrderByTimestampDesc(sessionId, WorldEvent.EventType.SYSTEM_EVENT);
+    }
+
+    /**
+     * 大模型更新记忆接口
+     * 当大模型生成回复时，可以调用此方法来更新记忆
+     */
+    public void updateMemoriesFromAI(String sessionId, String aiResponse, String userAction) {
+        try {
+            // 解析AI回复中的记忆相关内容
+            List<String> newMemories = extractMemoriesFromResponse(aiResponse);
+
+            for (String memory : newMemories) {
+                // 评估记忆重要性
+                double importance = assessMemoryImportance(memory, userAction);
+                if (importance > 0.6) { // 只存储重要性较高的记忆
+                    storeMemory(sessionId, memory, "AI_GENERATED", importance);
+                }
+            }
+
+            logger.info("AI记忆更新完成: sessionId={}, 记忆数量={}", sessionId, newMemories.size());
+        } catch (Exception e) {
+            logger.error("AI记忆更新失败: sessionId={}", sessionId, e);
+        }
+    }
+
+    /**
+     * 从AI回复中提取记忆内容
+     */
+    private List<String> extractMemoriesFromResponse(String response) {
+        List<String> memories = new ArrayList<>();
+
+        // 这里可以实现更复杂的解析逻辑
+        // 例如：查找特定标记、分析句子结构等
+        String[] sentences = response.split("[。.!！？]");
+        for (String sentence : sentences) {
+            if (sentence.length() > 20 && sentence.length() < 200) {
+                // 简单的筛选：长度适中的句子可能包含重要信息
+                memories.add(sentence.trim());
+            }
+        }
+
+        return memories.stream().limit(5).collect(Collectors.toList()); // 限制数量
     }
     
     /**
@@ -280,29 +552,25 @@ public class RoleplayMemoryService {
      */
     public void recordImportantEvent(String sessionId, String event, String context) {
         double importance = assessMemoryImportance(event, context);
-        
+
         if (importance > 0.6) { // 只记录重要性较高的事件
             storeMemory(sessionId, event, "EVENT", importance);
-            logger.info("记录重要事件: sessionId={}, importance={}, event={}", 
+            logger.info("记录重要事件: sessionId={}, importance={}, event={}",
                        sessionId, importance, event);
         }
     }
-    
+
     /**
-     * 更新角色关系
+     * 生成事件数据的校验和
      */
-    public void updateCharacterRelationship(String sessionId, String character, String relationship) {
-        storeMemory(sessionId, 
-                   String.format("与%s的关系: %s", character, relationship), 
-                   "RELATIONSHIP", 0.8);
+    private String generateChecksum(Map<String, Object> eventData) {
+        try {
+            String dataString = objectMapper.writeValueAsString(eventData);
+            return DigestUtils.md5DigestAsHex(dataString.getBytes()).toUpperCase();
+        } catch (Exception e) {
+            logger.warn("生成校验和失败，使用默认值", e);
+            return "DEFAULT";
+        }
     }
     
-    /**
-     * 记录世界状态变化
-     */
-    public void recordWorldStateChange(String sessionId, String change, String reason) {
-        storeMemory(sessionId, 
-                   String.format("世界状态变化: %s (原因: %s)", change, reason), 
-                   "WORLD_STATE", 0.7);
-    }
 }

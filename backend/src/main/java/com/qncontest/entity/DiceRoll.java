@@ -16,16 +16,28 @@ public class DiceRoll {
     
     @Column(name = "session_id", nullable = false)
     private String sessionId;
-    
+
+    @Column(name = "roll_id", nullable = false)
+    private String rollId;
+
     @Column(name = "dice_type", nullable = false)
     private Integer diceType;
     
+    @Column(name = "num_dice", nullable = false)
+    private Integer numDice = 1;
+
     @Column
     private Integer modifier = 0;
-    
+
     @Column(nullable = false)
     private Integer result;
-    
+
+    @Column(name = "final_result", nullable = false)
+    private Integer finalResult;
+
+    @Column(length = 500)
+    private String reason;
+
     @Column(length = 500)
     private String context;
     
@@ -41,27 +53,32 @@ public class DiceRoll {
     // 构造函数
     public DiceRoll() {
         this.createdAt = LocalDateTime.now();
+        this.rollId = generateRollId();
     }
-    
+
     public DiceRoll(String sessionId, Integer diceType, Integer result) {
         this();
         this.sessionId = sessionId;
         this.diceType = diceType;
         this.result = result;
+        this.finalResult = result + (modifier != null ? modifier : 0);
     }
-    
+
     public DiceRoll(String sessionId, Integer diceType, Integer modifier, Integer result, String context) {
         this(sessionId, diceType, result);
         this.modifier = modifier;
         this.context = context;
+        this.reason = context;
+        this.finalResult = result + (modifier != null ? modifier : 0);
+    }
+
+    /**
+     * 生成唯一的roll_id
+     */
+    private String generateRollId() {
+        return "roll_" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000);
     }
     
-    /**
-     * 计算最终结果（骰子结果 + 修正值）
-     */
-    public Integer getFinalResult() {
-        return result + (modifier != null ? modifier : 0);
-    }
     
     /**
      * 判断检定是否成功
@@ -87,7 +104,15 @@ public class DiceRoll {
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
     }
-    
+
+    public String getRollId() {
+        return rollId;
+    }
+
+    public void setRollId(String rollId) {
+        this.rollId = rollId;
+    }
+
     public Integer getDiceType() {
         return diceType;
     }
@@ -138,6 +163,30 @@ public class DiceRoll {
         if (difficultyClass != null) {
             this.isSuccessful = checkSuccess(difficultyClass);
         }
+    }
+
+    public Integer getNumDice() {
+        return numDice;
+    }
+
+    public void setNumDice(Integer numDice) {
+        this.numDice = numDice;
+    }
+
+    public Integer getFinalResult() {
+        return finalResult;
+    }
+
+    public void setFinalResult(Integer finalResult) {
+        this.finalResult = finalResult;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
     }
     
     public LocalDateTime getCreatedAt() {

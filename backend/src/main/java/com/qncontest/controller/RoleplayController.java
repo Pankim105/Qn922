@@ -5,6 +5,8 @@ import com.qncontest.dto.RoleplayRequest;
 import com.qncontest.dto.WorldTemplateResponse;
 import com.qncontest.entity.DiceRoll;
 import com.qncontest.entity.User;
+import com.qncontest.service.RoleplayMemoryService;
+import com.qncontest.service.RoleplayPromptEngine;
 import com.qncontest.service.RoleplayWorldService;
 import com.qncontest.service.StreamAiService;
 import com.qncontest.service.UserDetailsServiceImpl;
@@ -43,9 +45,15 @@ public class RoleplayController {
     
     @Autowired
     private StreamAiService streamAiService;
-    
+
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
+
+    @Autowired
+    private RoleplayMemoryService roleplayMemoryService;
+
+    @Autowired
+    private RoleplayPromptEngine roleplayPromptEngine;
     
     /**
      * 获取所有可用的世界模板
@@ -125,14 +133,22 @@ public class RoleplayController {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户未认证");
             }
             
-            logger.info("收到角色扮演流式聊天请求: user={}, session={}, world={}", 
-                       currentUser.getUsername(), request.getSessionId(), request.getWorldType());
-            
+            // logger.info("收到角色扮演流式聊天请求: user={}, session={}, world={}, message长度={}",
+            //            currentUser.getUsername(), request.getSessionId(), request.getWorldType(), request.getMessage().length());
+
+            // 检查是否启用DM评估模式
+            boolean isDMAwareMode = request.getWorldType() != null && !"general".equals(request.getWorldType());
+            if (isDMAwareMode) {
+                // logger.info("启用DM评估模式: worldType={}, sessionId={}", request.getWorldType(), request.getSessionId());
+            } else {
+                // logger.info("使用普通角色扮演模式: sessionId={}", request.getSessionId());
+            }
+
             // 设置SSE响应头
             response.setHeader("Cache-Control", "no-cache");
             response.setHeader("X-Accel-Buffering", "no");
-            
-            // 直接调用角色扮演流式聊天服务
+
+            // 直接调用角色扮演流式聊天服务，传递用户信息避免在异步线程中查询数据库
             return streamAiService.handleRoleplayStreamChat(request, currentUser);
             
         } catch (Exception e) {
@@ -220,6 +236,157 @@ public class RoleplayController {
         }
     }
     
+    /**
+     * 存储记忆
+     */
+    @PostMapping("/sessions/{sessionId}/memories")
+    public ResponseEntity<ChatResponse> storeMemory(
+            @PathVariable String sessionId,
+            @RequestBody MemoryRequest request) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+
+            double importance = request.getImportance() != null ? request.getImportance() : 0.5;
+            roleplayMemoryService.storeMemory(sessionId, request.getContent(), request.getType(), importance);
+
+            return ResponseEntity.ok(ChatResponse.success("记忆存储成功"));
+
+        } catch (Exception e) {
+            logger.error("存储记忆失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("存储记忆失败"));
+        }
+    }
+
+    /**
+     * 获取相关记忆
+     */
+    @GetMapping("/sessions/{sessionId}/memories")
+    public ResponseEntity<ChatResponse> getMemories(
+            @PathVariable String sessionId,
+            @RequestParam String query,
+            @RequestParam(defaultValue = "5") int maxResults) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+
+            List<RoleplayMemoryService.MemoryEntry> memories =
+                roleplayMemoryService.retrieveRelevantMemories(sessionId, query, maxResults);
+
+            return ResponseEntity.ok(ChatResponse.success("获取记忆成功", memories));
+
+        } catch (Exception e) {
+            logger.error("获取记忆失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("获取记忆失败"));
+        }
+    }
+
+    /**
+     * 获取记忆摘要
+     */
+    @GetMapping("/sessions/{sessionId}/memories/summary")
+    public ResponseEntity<ChatResponse> getMemorySummary(@PathVariable String sessionId) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+
+            String summary = roleplayMemoryService.getMemorySummary(sessionId);
+
+            return ResponseEntity.ok(ChatResponse.success("获取记忆摘要成功", summary));
+
+        } catch (Exception e) {
+            logger.error("获取记忆摘要失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("获取记忆摘要失败"));
+        }
+    }
+
+    /**
+     * 记录重要事件
+     */
+    @PostMapping("/sessions/{sessionId}/events/important")
+    public ResponseEntity<ChatResponse> recordImportantEvent(
+            @PathVariable String sessionId,
+            @RequestBody RecordEventRequest request) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+
+            roleplayMemoryService.recordImportantEvent(sessionId, request.getEvent(), request.getContext());
+
+            return ResponseEntity.ok(ChatResponse.success("重要事件记录成功"));
+
+        } catch (Exception e) {
+            logger.error("记录重要事件失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("记录重要事件失败"));
+        }
+    }
+
+    /**
+     * 更新角色关系
+     */
+    @PostMapping("/sessions/{sessionId}/relationships")
+    public ResponseEntity<ChatResponse> updateRelationship(
+            @PathVariable String sessionId,
+            @RequestBody UpdateRelationshipRequest request) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+
+            roleplayMemoryService.updateCharacterRelationship(sessionId, request.getCharacter(), request.getRelationship());
+
+            return ResponseEntity.ok(ChatResponse.success("角色关系更新成功"));
+
+        } catch (Exception e) {
+            logger.error("更新角色关系失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("更新角色关系失败"));
+        }
+    }
+
+    /**
+     * 处理AI回复中的记忆标记
+     */
+    @PostMapping("/sessions/{sessionId}/memories/process")
+    public ResponseEntity<ChatResponse> processMemoryMarkers(
+            @PathVariable String sessionId,
+            @RequestBody ProcessMemoryRequest request) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+
+            roleplayMemoryService.updateMemoriesFromAI(sessionId, request.getAiResponse(), request.getUserAction());
+
+            return ResponseEntity.ok(ChatResponse.success("记忆处理完成"));
+
+        } catch (Exception e) {
+            logger.error("处理记忆标记失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("处理记忆标记失败"));
+        }
+    }
+
     /**
      * 健康检查
      */
@@ -328,22 +495,119 @@ public class RoleplayController {
     public static class UpdateWorldStateRequest {
         private String worldState;
         private String skillsState;
-        
+
         // Getters and Setters
         public String getWorldState() {
             return worldState;
         }
-        
+
         public void setWorldState(String worldState) {
             this.worldState = worldState;
         }
-        
+
         public String getSkillsState() {
             return skillsState;
         }
-        
+
         public void setSkillsState(String skillsState) {
             this.skillsState = skillsState;
+        }
+    }
+
+    public static class MemoryRequest {
+        private String content;
+        private String type;
+        private Double importance;
+
+        // Getters and Setters
+        public String getContent() {
+            return content;
+        }
+
+        public void setContent(String content) {
+            this.content = content;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public Double getImportance() {
+            return importance;
+        }
+
+        public void setImportance(Double importance) {
+            this.importance = importance;
+        }
+    }
+
+    public static class ProcessMemoryRequest {
+        private String aiResponse;
+        private String userAction;
+
+        // Getters and Setters
+        public String getAiResponse() {
+            return aiResponse;
+        }
+
+        public void setAiResponse(String aiResponse) {
+            this.aiResponse = aiResponse;
+        }
+
+        public String getUserAction() {
+            return userAction;
+        }
+
+        public void setUserAction(String userAction) {
+            this.userAction = userAction;
+        }
+    }
+
+    public static class RecordEventRequest {
+        private String event;
+        private String context;
+
+        // Getters and Setters
+        public String getEvent() {
+            return event;
+        }
+
+        public void setEvent(String event) {
+            this.event = event;
+        }
+
+        public String getContext() {
+            return context;
+        }
+
+        public void setContext(String context) {
+            this.context = context;
+        }
+    }
+
+    public static class UpdateRelationshipRequest {
+        private String character;
+        private String relationship;
+
+        // Getters and Setters
+        public String getCharacter() {
+            return character;
+        }
+
+        public void setCharacter(String character) {
+            this.character = character;
+        }
+
+        public String getRelationship() {
+            return relationship;
+        }
+
+        public void setRelationship(String relationship) {
+            this.relationship = relationship;
         }
     }
 }
