@@ -12,7 +12,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Converter
 public class JsonObjectConverter implements AttributeConverter<Object, String> {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static ObjectMapper getObjectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        return objectMapper;
+    }
 
     @Override
     public String convertToDatabaseColumn(Object attribute) {
@@ -20,7 +24,7 @@ public class JsonObjectConverter implements AttributeConverter<Object, String> {
             return null;
         }
         try {
-            return objectMapper.writeValueAsString(attribute);
+            return getObjectMapper().writeValueAsString(attribute);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to convert Object to JSON string", e);
         }
@@ -32,7 +36,7 @@ public class JsonObjectConverter implements AttributeConverter<Object, String> {
             return null;
         }
         try {
-            return objectMapper.readValue(dbData, Object.class);
+            return getObjectMapper().readValue(dbData, Object.class);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to convert JSON string to Object", e);
         }

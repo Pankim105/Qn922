@@ -139,6 +139,12 @@ public class RoleplayMemoryService {
             memoryEvent.setEventData(objectMapper.writeValueAsString(eventData));
             memoryEvent.setSequence(getNextEventSequence(sessionId));
             memoryEvent.setChecksum(generateChecksum(eventData));
+            // 记录当前会话情节快照
+            chatSessionRepository.findById(sessionId).ifPresent(cs -> {
+                memoryEvent.setTotalRounds(cs.getTotalRounds());
+                memoryEvent.setCurrentArcStartRound(cs.getCurrentArcStartRound());
+                memoryEvent.setCurrentArcName(cs.getCurrentArcName());
+            });
 
             worldEventRepository.save(memoryEvent);
 
@@ -189,13 +195,17 @@ public class RoleplayMemoryService {
             ChatSession session = sessionOpt.get();
             Map<String, Object> memories = parseMemoriesFromSession(session);
 
-            // 合并所有类型的记忆
-            List<Map<String, Object>> allMemories = new ArrayList<>();
-            for (Object memoryList : memories.values()) {
-                if (memoryList instanceof List) {
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> typedMemoryList = (List<Map<String, Object>>) memoryList;
-                    allMemories.addAll(typedMemoryList);
+            // 合并所有类型的记忆，兼容多种数据结构
+            List<Object> allMemories = new ArrayList<>();
+            for (Object memoryValue : memories.values()) {
+                if (memoryValue instanceof List) {
+                    List<?> list = (List<?>) memoryValue;
+                    allMemories.addAll(list);
+                } else if (memoryValue instanceof Map) {
+                    allMemories.add(memoryValue);
+                } else if (memoryValue != null) {
+                    // 兜底：字符串或其它类型
+                    allMemories.add(memoryValue);
                 }
             }
 
@@ -205,8 +215,19 @@ public class RoleplayMemoryService {
 
             // 简单的关键词匹配（后续可以用向量相似度）
             return allMemories.stream()
-                    .filter(memory -> isRelevant((String) memory.get("content"), query))
-                    .map(this::convertToMemoryEntry)
+                    .filter(memoryObj -> {
+                        String contentStr;
+                        if (memoryObj instanceof Map) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> mapObj = (Map<String, Object>) memoryObj;
+                            Object content = mapObj.get("content");
+                            contentStr = content == null ? "" : content.toString();
+                        } else {
+                            contentStr = memoryObj.toString();
+                        }
+                        return isRelevant(contentStr, query);
+                    })
+                    .map(this::convertToMemoryEntryFromAny)
                     .sorted((a, b) -> Double.compare(b.getImportance(), a.getImportance()))
                     .limit(maxResults)
                     .collect(Collectors.toList());
@@ -234,8 +255,8 @@ public class RoleplayMemoryService {
             "遇到", "对话", "购买", "移动", "战斗", "学习", "挑战"
         };
         
-        String lowerEvent = event.toLowerCase();
-        String lowerContext = context.toLowerCase();
+        String lowerEvent = event == null ? "" : event.toLowerCase();
+        String lowerContext = context == null ? "" : context.toLowerCase();
         
         for (String keyword : highImportanceKeywords) {
             if (lowerEvent.contains(keyword) || lowerContext.contains(keyword)) {
@@ -302,9 +323,19 @@ public class RoleplayMemoryService {
      * 将Map转换为MemoryEntry
      */
     private MemoryEntry convertToMemoryEntry(Map<String, Object> memoryMap) {
+        // 安全地获取content，处理不同的数据类型
+        Object contentObj = memoryMap.get("content");
+        String content = contentObj instanceof String ? (String) contentObj : 
+                        contentObj != null ? contentObj.toString() : "";
+        
+        // 安全地获取type
+        Object typeObj = memoryMap.get("type");
+        String type = typeObj instanceof String ? (String) typeObj : 
+                     typeObj != null ? typeObj.toString() : "UNKNOWN";
+        
         MemoryEntry entry = new MemoryEntry(
-            (String) memoryMap.get("content"),
-            (String) memoryMap.get("type"),
+            content,
+            type,
             ((Number) memoryMap.getOrDefault("importance", 0.5)).doubleValue()
         );
 
@@ -334,6 +365,21 @@ public class RoleplayMemoryService {
             entry.setMetadata(metadata);
         }
 
+        return entry;
+    }
+
+    /**
+     * 将任意对象转换为MemoryEntry，兼容字符串/Map等
+     */
+    @SuppressWarnings("unchecked")
+    private MemoryEntry convertToMemoryEntryFromAny(Object obj) {
+        if (obj instanceof Map) {
+            return convertToMemoryEntry((Map<String, Object>) obj);
+        }
+        // 兜底字符串
+        String content = obj == null ? "" : obj.toString();
+        MemoryEntry entry = new MemoryEntry(content, "TEXT", 0.5);
+        entry.setTimestamp(System.currentTimeMillis());
         return entry;
     }
 
@@ -428,6 +474,10 @@ public class RoleplayMemoryService {
             return true;
         }
 
+        if (content == null || content.trim().isEmpty()) {
+            return false;
+        }
+
         String lowerContent = content.toLowerCase();
         String lowerQuery = query.toLowerCase();
 
@@ -463,6 +513,11 @@ public class RoleplayMemoryService {
             relationshipEvent.setEventData(objectMapper.writeValueAsString(eventData));
             relationshipEvent.setSequence(getNextEventSequence(sessionId));
             relationshipEvent.setChecksum(generateChecksum(eventData));
+            chatSessionRepository.findById(sessionId).ifPresent(cs -> {
+                relationshipEvent.setTotalRounds(cs.getTotalRounds());
+                relationshipEvent.setCurrentArcStartRound(cs.getCurrentArcStartRound());
+                relationshipEvent.setCurrentArcName(cs.getCurrentArcName());
+            });
 
             worldEventRepository.save(relationshipEvent);
         } catch (Exception e) {
@@ -491,6 +546,11 @@ public class RoleplayMemoryService {
             stateEvent.setEventData(objectMapper.writeValueAsString(eventData));
             stateEvent.setSequence(getNextEventSequence(sessionId));
             stateEvent.setChecksum(generateChecksum(eventData));
+            chatSessionRepository.findById(sessionId).ifPresent(cs -> {
+                stateEvent.setTotalRounds(cs.getTotalRounds());
+                stateEvent.setCurrentArcStartRound(cs.getCurrentArcStartRound());
+                stateEvent.setCurrentArcName(cs.getCurrentArcName());
+            });
 
             worldEventRepository.save(stateEvent);
         } catch (Exception e) {

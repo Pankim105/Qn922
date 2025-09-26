@@ -1,28 +1,34 @@
 package com.qncontest.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.qncontest.entity.*;
-import com.qncontest.repository.*;
+import com.qncontest.entity.ChatSession;
+import com.qncontest.entity.DiceRoll;
+import com.qncontest.entity.User;
+import com.qncontest.entity.WorldEvent;
+import com.qncontest.entity.WorldState;
+import com.qncontest.repository.DiceRollRepository;
+import com.qncontest.repository.WorldEventRepository;
+import com.qncontest.repository.WorldStateRepository;
+import com.qncontest.service.interfaces.WorldStateManagerInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
-import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 /**
- * 角色扮演世界服务 - 核心世界状态管理
+ * 角色扮演世界管理服务
+ * 实现WorldStateManagerInterface接口，负责管理角色扮演世界的状态、事件和骰子检定
  */
 @Service
-public class RoleplayWorldService {
+public class RoleplayWorldService implements WorldStateManagerInterface {
     
     private static final Logger logger = LoggerFactory.getLogger(RoleplayWorldService.class);
     
@@ -30,72 +36,48 @@ public class RoleplayWorldService {
     private WorldStateRepository worldStateRepository;
     
     @Autowired
-    private StabilityAnchorRepository stabilityAnchorRepository;
-    
-    @Autowired
     private WorldEventRepository worldEventRepository;
     
     @Autowired
     private DiceRollRepository diceRollRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
     
     @Autowired
     private ChatSessionService chatSessionService;
-    
-    @Autowired
-    private WorldTemplateService worldTemplateService;
-    
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final SecureRandom random = new SecureRandom();
+
+    private final Random random = new Random();
     
     /**
      * 初始化角色扮演会话
+     * @param sessionId 会话ID
+     * @param worldType 世界类型
+     * @param godModeRules 上帝模式规则
+     * @param user 用户信息
      */
-    @Transactional
+    @Override
     public void initializeRoleplaySession(String sessionId, String worldType, String godModeRules, User user) {
-        logger.info("初始化角色扮演会话: sessionId={}, worldType={}", sessionId, worldType);
+        logger.info("初始化角色扮演会话: sessionId={}, worldType={}, userId={}", 
+                   sessionId, worldType, user.getId());
         
         try {
-            // 0. 检查是否已经初始化过
-            ChatSession existingSession = chatSessionService.getOrCreateSession(sessionId, user);
-            if (existingSession.getWorldType() != null && !existingSession.getWorldType().equals("general")) {
-                logger.info("会话已初始化过，跳过重复初始化: sessionId={}, existingWorldType={}", 
-                           sessionId, existingSession.getWorldType());
+            // 检查是否已经存在世界状态
+            Optional<WorldState> existingState = worldStateRepository.findTop1BySessionIdOrderByVersionDescCreatedAtDesc(sessionId);
+            if (existingState.isPresent()) {
+                logger.info("会话 {} 已存在世界状态，跳过初始化", sessionId);
                 return;
             }
             
-            // 1. 获取世界模板
-            String defaultRules = worldTemplateService.getDefaultRules(worldType);
-            String stabilityAnchorsTemplate = worldTemplateService.getStabilityAnchors(worldType);
+            // 创建初始世界状态
+            WorldState initialState = createInitialWorldState(sessionId, worldType, godModeRules);
+            worldStateRepository.save(initialState);
             
-            // 2. 合并默认规则和上帝模式规则
-            String mergedRules = mergeRules(defaultRules, godModeRules);
+            // 记录初始化事件
+            recordWorldEvent(sessionId, WorldEvent.EventType.SYSTEM_EVENT, 
+                           createInitializationEventData(worldType, godModeRules, user));
             
-            // 3. 初始化世界状态
-            String initialWorldState = createInitialWorldState(worldType, mergedRules);
-            
-            // 4. 初始化技能状态
-            String initialSkillsState = createInitialSkillsState();
-            
-            // 5. 更新会话
-            existingSession.setWorldType(worldType);
-            existingSession.setWorldRules(mergedRules);
-            existingSession.setGodModeRules(godModeRules);
-            existingSession.setWorldState(initialWorldState);
-            existingSession.setSkillsState(initialSkillsState);
-            existingSession.setVersion(1);
-            existingSession.setChecksum(calculateChecksum(initialWorldState));
-            
-            // 6. 初始化稳定性锚点
-            initializeStabilityAnchors(sessionId, worldType, stabilityAnchorsTemplate, mergedRules);
-            
-            // 7. 记录初始化事件（使用安全的序列号生成）
-            recordEventSafe(sessionId, WorldEvent.EventType.SYSTEM_EVENT, 
-                           createEventData("session_initialized", Map.of(
-                               "worldType", worldType,
-                               "hasGodModeRules", godModeRules != null && !godModeRules.trim().isEmpty()
-                           )));
-            
-            logger.info("角色扮演会话初始化完成: {}", sessionId);
+            logger.info("角色扮演会话初始化完成: sessionId={}", sessionId);
             
         } catch (Exception e) {
             logger.error("初始化角色扮演会话失败: sessionId={}", sessionId, e);
@@ -105,84 +87,107 @@ public class RoleplayWorldService {
     
     /**
      * 执行骰子检定
+     * @param sessionId 会话ID
+     * @param diceType 骰子类型
+     * @param modifier 修正值
+     * @param context 检定上下文
+     * @param difficultyClass 难度等级
+     * @return 骰子检定结果
      */
-    @Transactional
+    @Override
     public DiceRoll rollDice(String sessionId, Integer diceType, Integer modifier, String context, Integer difficultyClass) {
-        logger.debug("执行骰子检定: sessionId={}, diceType=d{}, modifier={}", sessionId, diceType, modifier);
+        logger.info("执行骰子检定: sessionId={}, diceType={}, modifier={}, context={}, dc={}", 
+                   sessionId, diceType, modifier, context, difficultyClass);
         
-        // 生成确定性随机数（基于会话和当前事件序号）
-        int eventSequence = getNextEventSequence(sessionId);
-        long seed = generateDeterministicSeed(sessionId, eventSequence);
-        SecureRandom deterministicRandom = new SecureRandom();
-        deterministicRandom.setSeed(seed);
-        
-        // 掷骰子
-        int result = deterministicRandom.nextInt(diceType) + 1;
-        
-        // 创建骰子记录
-        DiceRoll diceRoll = new DiceRoll(sessionId, diceType, modifier, result, context);
-        if (difficultyClass != null) {
+        try {
+            // 生成骰子结果
+            int result = rollDiceResult(diceType);
+            int finalResult = result + (modifier != null ? modifier : 0);
+            
+            // 创建骰子记录
+            DiceRoll diceRoll = new DiceRoll();
+            diceRoll.setSessionId(sessionId);
+            diceRoll.setDiceType(diceType);
+            diceRoll.setModifier(modifier != null ? modifier : 0);
+            diceRoll.setResult(result);
+            diceRoll.setFinalResult(finalResult);
+            diceRoll.setContext(context);
             diceRoll.setDifficultyClass(difficultyClass);
+            diceRoll.setCreatedAt(LocalDateTime.now());
+            
+            // 判断是否成功
+            if (difficultyClass != null) {
+                diceRoll.setIsSuccessful(finalResult >= difficultyClass);
+            }
+            
+            // 保存骰子记录
+            diceRollRepository.save(diceRoll);
+            
+            // 记录骰子事件
+            recordWorldEvent(sessionId, WorldEvent.EventType.DICE_ROLL, 
+                           createDiceRollEventData(diceRoll));
+            
+            logger.info("骰子检定完成: sessionId={}, result={}, finalResult={}, success={}", 
+                       sessionId, result, finalResult, diceRoll.getIsSuccessful());
+            
+            return diceRoll;
+            
+        } catch (Exception e) {
+            logger.error("执行骰子检定失败: sessionId={}", sessionId, e);
+            throw new RuntimeException("执行骰子检定失败", e);
         }
-        
-        diceRoll = diceRollRepository.save(diceRoll);
-        
-        // 记录事件
-        recordEvent(sessionId, WorldEvent.EventType.DICE_ROLL,
-                   createEventData("dice_roll", Map.of(
-                       "diceType", diceType,
-                       "modifier", modifier != null ? modifier : 0,
-                       "result", result,
-                       "finalResult", diceRoll.getFinalResult(),
-                       "context", context != null ? context : "",
-                       "isSuccessful", diceRoll.getIsSuccessful() != null ? diceRoll.getIsSuccessful() : false
-                   )), eventSequence);
-        
-        logger.info("骰子检定完成: sessionId={}, d{}+{} = {} (最终: {})", 
-                   sessionId, diceType, modifier, result, diceRoll.getFinalResult());
-        
-        return diceRoll;
     }
     
     /**
      * 更新世界状态
+     * @param sessionId 会话ID
+     * @param newWorldState 新的世界状态
+     * @param skillsState 技能状态
      */
-    @Transactional
+    @Override
     public void updateWorldState(String sessionId, String newWorldState, String skillsState) {
-        logger.debug("更新世界状态: sessionId={}", sessionId);
+        logger.info("更新世界状态: sessionId={}", sessionId);
         
         try {
+            // 获取当前会话
             ChatSession session = chatSessionService.getSessionWithMessages(sessionId);
             if (session == null) {
-                throw new RuntimeException("会话不存在: " + sessionId);
+                logger.warn("会话 {} 不存在，无法更新世界状态", sessionId);
+                return;
             }
             
-            // 乐观锁检查
-            Integer currentVersion = session.getVersion();
-            Integer newVersion = currentVersion + 1;
+            boolean hasUpdates = false;
             
-            // 更新会话状态
-            session.setWorldState(newWorldState);
-            if (skillsState != null) {
+            // 更新世界状态
+            if (newWorldState != null && !newWorldState.trim().isEmpty()) {
+                logger.info("更新会话世界状态: sessionId={}", sessionId);
+                session.setWorldState(newWorldState);
+                hasUpdates = true;
+            }
+            
+            // 更新技能状态
+            if (skillsState != null && !skillsState.trim().isEmpty()) {
+                logger.info("更新会话技能状态: sessionId={}", sessionId);
                 session.setSkillsState(skillsState);
+                hasUpdates = true;
             }
-            session.setVersion(newVersion);
-            session.setChecksum(calculateChecksum(newWorldState));
             
-            // 保存世界状态快照
-            WorldState worldState = new WorldState(sessionId, newVersion);
-            populateWorldStateFromJson(worldState, newWorldState);
-            worldState.setChecksum(calculateChecksum(newWorldState));
-            worldStateRepository.save(worldState);
-            
-            // 记录状态变更事件
-            recordEvent(sessionId, WorldEvent.EventType.STATE_CHANGE,
-                       createEventData("state_updated", Map.of(
-                           "version", newVersion,
-                           "hasSkillsUpdate", skillsState != null
-                       )), getNextEventSequence(sessionId));
-            
-            logger.debug("世界状态更新完成: sessionId={}, version={}", sessionId, newVersion);
+            if (hasUpdates) {
+                // 更新版本号和校验和
+                session.setVersion(session.getVersion() + 1);
+                session.setChecksum(calculateSessionChecksum(session));
+                
+                // 保存会话
+                chatSessionService.saveSession(session);
+                
+                // 记录状态变更事件
+                recordWorldEvent(sessionId, WorldEvent.EventType.STATE_CHANGE, 
+                               createStateChangeEventData(session.getVersion() - 1, session.getVersion(), newWorldState, skillsState));
+                
+                logger.info("世界状态更新完成: sessionId={}, version={}", sessionId, session.getVersion());
+            } else {
+                logger.info("无状态更新，跳过: sessionId={}", sessionId);
+            }
             
         } catch (Exception e) {
             logger.error("更新世界状态失败: sessionId={}", sessionId, e);
@@ -191,307 +196,203 @@ public class RoleplayWorldService {
     }
     
     /**
-     * 获取世界状态摘要（用于系统提示词）
+     * 获取世界状态摘要
+     * @param sessionId 会话ID
+     * @return 世界状态摘要
      */
+    @Override
     public String getWorldStateSummary(String sessionId) {
+        logger.debug("获取世界状态摘要: sessionId={}", sessionId);
+        
         try {
             ChatSession session = chatSessionService.getSessionWithMessages(sessionId);
-            if (session == null || session.getWorldState() == null) {
+            if (session == null) {
                 return "{}";
             }
             
-            JsonNode worldState = objectMapper.readTree(session.getWorldState());
             Map<String, Object> summary = new HashMap<>();
-            
-            // 提取关键信息
-            if (worldState.has("currentLocation")) {
-                summary.put("location", worldState.get("currentLocation"));
-            }
-            if (worldState.has("characters")) {
-                summary.put("characters", worldState.get("characters"));
-            }
-            if (worldState.has("activeQuests")) {
-                summary.put("activeQuests", worldState.get("activeQuests"));
-            }
+            summary.put("version", session.getVersion());
+            summary.put("hasWorldState", session.getWorldState() != null && !session.getWorldState().trim().isEmpty());
+            summary.put("hasSkillsState", session.getSkillsState() != null && !session.getSkillsState().trim().isEmpty());
+            summary.put("hasActiveQuests", session.getActiveQuests() != null && !session.getActiveQuests().trim().isEmpty());
+            summary.put("hasCharacterStats", session.getCharacterStats() != null && !session.getCharacterStats().trim().isEmpty());
+            summary.put("lastUpdated", session.getUpdatedAt());
             
             return objectMapper.writeValueAsString(summary);
             
         } catch (Exception e) {
-            logger.warn("获取世界状态摘要失败: sessionId={}", sessionId, e);
+            logger.error("获取世界状态摘要失败: sessionId={}", sessionId, e);
             return "{}";
-        }
-    }
-    
-    /**
-     * 生成确定性种子
-     */
-    private long generateDeterministicSeed(String sessionId, int sequence) {
-        String seedString = sessionId + "_" + sequence;
-        return seedString.hashCode();
-    }
-    
-    /**
-     * 合并默认规则和上帝模式规则
-     */
-    private String mergeRules(String defaultRules, String godModeRules) {
-        try {
-            if (godModeRules == null || godModeRules.trim().isEmpty()) {
-                return defaultRules;
-            }
-            
-            JsonNode defaultNode = objectMapper.readTree(defaultRules);
-            JsonNode godModeNode = objectMapper.readTree(godModeRules);
-            
-            // 简单合并：上帝模式规则覆盖默认规则
-            Map<String, Object> merged = objectMapper.convertValue(defaultNode, Map.class);
-            Map<String, Object> godModeMap = objectMapper.convertValue(godModeNode, Map.class);
-            merged.putAll(godModeMap);
-            
-            return objectMapper.writeValueAsString(merged);
-            
-        } catch (Exception e) {
-            logger.warn("合并规则失败，使用默认规则", e);
-            return defaultRules;
         }
     }
     
     /**
      * 创建初始世界状态
      */
-    private String createInitialWorldState(String worldType, String rules) {
-        Map<String, Object> initialState = new HashMap<>();
-        initialState.put("worldType", worldType);
-        initialState.put("initialized", true);
-        initialState.put("currentLocation", getInitialLocation(worldType));
-        initialState.put("characters", Map.of("protagonist", getInitialCharacter(worldType)));
-        initialState.put("activeQuests", Map.of());
-        initialState.put("completedQuests", Map.of());
-        initialState.put("inventory", Map.of());
-        initialState.put("factions", Map.of());
+    private WorldState createInitialWorldState(String sessionId, String worldType, String godModeRules) {
+        WorldState state = new WorldState();
+        state.setSessionId(sessionId);
+        state.setVersion(1);
+        
+        // 设置初始位置
+        Map<String, Object> initialLocation = new HashMap<>();
+        initialLocation.put("name", "起始地点");
+        initialLocation.put("description", "你的冒险从这里开始");
+        initialLocation.put("worldType", worldType);
         
         try {
-            return objectMapper.writeValueAsString(initialState);
+            state.setCurrentLocation(objectMapper.writeValueAsString(initialLocation));
         } catch (JsonProcessingException e) {
-            logger.error("创建初始世界状态失败", e);
-            return "{}";
+            logger.warn("设置初始位置失败", e);
+            state.setCurrentLocation("{}");
         }
-    }
-    
-    /**
-     * 创建初始技能状态
-     */
-    private String createInitialSkillsState() {
-        Map<String, Object> skillsState = new HashMap<>();
-        skillsState.put("questLog", Map.of("quests", Map.of()));
-        skillsState.put("diceHistory", Map.of("rolls", List.of()));
-        skillsState.put("learningProgress", Map.of(
-            "math", Map.of("level", 1, "score", 0),
-            "history", Map.of("level", 1, "score", 0),
-            "language", Map.of("level", 1, "score", 0)
-        ));
         
-        try {
-            return objectMapper.writeValueAsString(skillsState);
-        } catch (JsonProcessingException e) {
-            logger.error("创建初始技能状态失败", e);
-            return "{}";
-        }
+        // 初始化其他状态
+        state.setCharacters("{}");
+        state.setFactions("{}");
+        state.setInventory("{}");
+        state.setActiveQuests("{}");
+        state.setCompletedQuests("{}");
+        state.setEventHistory("[]");
+        
+        // 计算校验和
+        String checksum = calculateStateChecksum(state);
+        state.setChecksum(checksum);
+        
+        return state;
     }
     
-    /**
-     * 初始化稳定性锚点
-     */
-    private void initializeStabilityAnchors(String sessionId, String worldType, String template, String rules) {
-        try {
-            // 添加不可变的世界规则锚点
-            stabilityAnchorRepository.save(new StabilityAnchor(
-                sessionId, StabilityAnchor.AnchorType.WORLD_RULE, 
-                "world_type", worldType, 10, true));
-            
-            stabilityAnchorRepository.save(new StabilityAnchor(
-                sessionId, StabilityAnchor.AnchorType.WORLD_RULE,
-                "basic_rules", rules, 9, true));
-            
-            // 根据世界类型添加特定锚点
-            addWorldSpecificAnchors(sessionId, worldType);
-            
-        } catch (Exception e) {
-            logger.warn("初始化稳定性锚点失败: sessionId={}", sessionId, e);
-        }
-    }
     
     /**
-     * 添加世界特定的锚点
+     * 生成骰子结果
      */
-    private void addWorldSpecificAnchors(String sessionId, String worldType) {
-        switch (worldType) {
-            case "isekai":
-                stabilityAnchorRepository.save(new StabilityAnchor(
-                    sessionId, StabilityAnchor.AnchorType.WORLD_RULE,
-                    "magic_system", "mana_based", 8, true));
-                break;
-            case "western_fantasy":
-                stabilityAnchorRepository.save(new StabilityAnchor(
-                    sessionId, StabilityAnchor.AnchorType.WORLD_RULE,
-                    "dnd_rules", "basic_dnd", 8, true));
-                break;
-            case "wuxia_history":
-                stabilityAnchorRepository.save(new StabilityAnchor(
-                    sessionId, StabilityAnchor.AnchorType.WORLD_RULE,
-                    "historical_era", "ming_dynasty", 8, true));
-                break;
-            case "jp_school":
-                stabilityAnchorRepository.save(new StabilityAnchor(
-                    sessionId, StabilityAnchor.AnchorType.WORLD_RULE,
-                    "school_setting", "japanese_high_school", 8, true));
-                break;
-            case "edutainment":
-                stabilityAnchorRepository.save(new StabilityAnchor(
-                    sessionId, StabilityAnchor.AnchorType.WORLD_RULE,
-                    "educational_focus", "age_appropriate", 8, true));
-                break;
-        }
-    }
-    
-    /**
-     * 记录世界事件
-     */
-    private void recordEvent(String sessionId, WorldEvent.EventType eventType, String eventData, int sequence) {
-        try {
-            WorldEvent event = new WorldEvent(sessionId, eventType, eventData, sequence);
-            event.setChecksum(DigestUtils.md5DigestAsHex(eventData.getBytes()));
-            worldEventRepository.save(event);
-        } catch (Exception e) {
-            logger.warn("记录世界事件失败: sessionId={}, eventType={}", sessionId, eventType, e);
-        }
-    }
-    
-    /**
-     * 安全地记录世界事件（自动处理序列号冲突）
-     */
-    private void recordEventSafe(String sessionId, WorldEvent.EventType eventType, String eventData) {
-        try {
-            int sequence = getNextEventSequence(sessionId);
-            WorldEvent event = new WorldEvent(sessionId, eventType, eventData, sequence);
-            event.setChecksum(DigestUtils.md5DigestAsHex(eventData.getBytes()));
-            worldEventRepository.save(event);
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            if (e.getMessage().contains("UK_session_sequence")) {
-                logger.warn("事件序列号冲突，跳过重复事件记录: sessionId={}, eventType={}", sessionId, eventType);
-            } else {
-                logger.warn("记录世界事件失败: sessionId={}, eventType={}", sessionId, eventType, e);
-            }
-        } catch (Exception e) {
-            logger.warn("记录世界事件失败: sessionId={}, eventType={}", sessionId, eventType, e);
-        }
-    }
-    
-    /**
-     * 获取下一个事件序号
-     */
-    private int getNextEventSequence(String sessionId) {
-        return worldEventRepository.findMaxSequenceBySessionId(sessionId).orElse(0) + 1;
-    }
-    
-    /**
-     * 创建事件数据
-     */
-    private String createEventData(String action, Map<String, Object> data) {
-        try {
-            Map<String, Object> eventData = new HashMap<>();
-            eventData.put("action", action);
-            eventData.put("data", data);
-            eventData.put("timestamp", System.currentTimeMillis());
-            return objectMapper.writeValueAsString(eventData);
-        } catch (JsonProcessingException e) {
-            logger.warn("创建事件数据失败", e);
-            return "{}";
-        }
+    private int rollDiceResult(int diceType) {
+        return random.nextInt(diceType) + 1;
     }
     
     /**
      * 计算状态校验和
      */
-    private String calculateChecksum(String content) {
-        return DigestUtils.md5DigestAsHex(content.getBytes());
+    private String calculateStateChecksum(WorldState state) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(state.getSessionId());
+        sb.append(state.getVersion());
+        sb.append(state.getCurrentLocation());
+        sb.append(state.getCharacters());
+        sb.append(state.getFactions());
+        sb.append(state.getInventory());
+        sb.append(state.getActiveQuests());
+        sb.append(state.getCompletedQuests());
+        sb.append(state.getEventHistory());
+        
+        return DigestUtils.md5DigestAsHex(sb.toString().getBytes());
     }
     
     /**
-     * 从JSON填充WorldState对象
+     * 计算会话校验和
      */
-    private void populateWorldStateFromJson(WorldState worldState, String json) {
+    private String calculateSessionChecksum(ChatSession session) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(session.getSessionId());
+        sb.append(session.getVersion());
+        sb.append(session.getWorldState());
+        sb.append(session.getSkillsState());
+        sb.append(session.getActiveQuests());
+        sb.append(session.getCompletedQuests());
+        sb.append(session.getCharacterStats());
+        sb.append(session.getCurrentArcName());
+        sb.append(session.getTotalRounds());
+        
+        return DigestUtils.md5DigestAsHex(sb.toString().getBytes());
+    }
+    
+    /**
+     * 记录世界事件
+     */
+    private void recordWorldEvent(String sessionId, WorldEvent.EventType eventType, String eventData) {
         try {
-            JsonNode node = objectMapper.readTree(json);
-            if (node.has("currentLocation")) {
-                worldState.setCurrentLocation(node.get("currentLocation").toString());
-            }
-            if (node.has("characters")) {
-                worldState.setCharacters(node.get("characters").toString());
-            }
-            if (node.has("factions")) {
-                worldState.setFactions(node.get("factions").toString());
-            }
-            if (node.has("inventory")) {
-                worldState.setInventory(node.get("inventory").toString());
-            }
-            if (node.has("activeQuests")) {
-                worldState.setActiveQuests(node.get("activeQuests").toString());
-            }
-            if (node.has("completedQuests")) {
-                worldState.setCompletedQuests(node.get("completedQuests").toString());
-            }
+            // 获取下一个事件序号
+            Optional<Integer> maxSequence = worldEventRepository.findMaxSequenceBySessionId(sessionId);
+            int nextSequence = maxSequence.orElse(0) + 1;
+            
+            // 创建事件记录
+            WorldEvent event = new WorldEvent();
+            event.setSessionId(sessionId);
+            event.setEventType(eventType);
+            event.setEventData(eventData);
+            event.setSequence(nextSequence);
+            event.setTimestamp(LocalDateTime.now());
+            
+            // 计算事件校验和
+            String checksum = DigestUtils.md5DigestAsHex((sessionId + nextSequence + eventData).getBytes());
+            event.setChecksum(checksum);
+            
+            // 保存事件
+            worldEventRepository.save(event);
+            
         } catch (Exception e) {
-            logger.warn("填充WorldState失败", e);
+            logger.error("记录世界事件失败: sessionId={}, eventType={}", sessionId, eventType, e);
         }
     }
     
     /**
-     * 获取初始地点
+     * 创建初始化事件数据
      */
-    private String getInitialLocation(String worldType) {
-        switch (worldType) {
-            case "isekai": return "新手村";
-            case "western_fantasy": return "冒险者酒馆";
-            case "wuxia_history": return "江湖客栈";
-            case "jp_school": return "1年A班教室";
-            case "edutainment": return "虚拟教室";
-            default: return "起始地点";
+    private String createInitializationEventData(String worldType, String godModeRules, User user) {
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("worldType", worldType);
+            eventData.put("godModeRules", godModeRules);
+            eventData.put("userId", user.getId());
+            eventData.put("username", user.getUsername());
+            eventData.put("timestamp", LocalDateTime.now().toString());
+            
+            return objectMapper.writeValueAsString(eventData);
+        } catch (JsonProcessingException e) {
+            logger.warn("创建初始化事件数据失败", e);
+            return "{}";
         }
     }
     
     /**
-     * 获取初始角色
+     * 创建骰子检定事件数据
      */
-    private Map<String, Object> getInitialCharacter(String worldType) {
-        Map<String, Object> character = new HashMap<>();
-        character.put("name", "主角");
-        character.put("level", 1);
-        
-        switch (worldType) {
-            case "isekai":
-                character.put("class", "未定");
-                character.put("hp", 100);
-                character.put("mp", 50);
-                break;
-            case "western_fantasy":
-                character.put("race", "人类");
-                character.put("class", "冒险者");
-                break;
-            case "wuxia_history":
-                character.put("sect", "未定");
-                character.put("martial_level", "初学");
-                break;
-            case "jp_school":
-                character.put("grade", "高一");
-                character.put("club", "未加入");
-                break;
-            case "edutainment":
-                character.put("grade", "学生");
-                character.put("subjects", List.of("数学"));
-                break;
+    private String createDiceRollEventData(DiceRoll diceRoll) {
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("rollId", diceRoll.getRollId());
+            eventData.put("diceType", diceRoll.getDiceType());
+            eventData.put("modifier", diceRoll.getModifier());
+            eventData.put("result", diceRoll.getResult());
+            eventData.put("finalResult", diceRoll.getFinalResult());
+            eventData.put("context", diceRoll.getContext());
+            eventData.put("difficultyClass", diceRoll.getDifficultyClass());
+            eventData.put("isSuccessful", diceRoll.getIsSuccessful());
+            eventData.put("timestamp", diceRoll.getCreatedAt().toString());
+            
+            return objectMapper.writeValueAsString(eventData);
+        } catch (JsonProcessingException e) {
+            logger.warn("创建骰子检定事件数据失败", e);
+            return "{}";
         }
-        
-        return character;
+    }
+    
+    /**
+     * 创建状态变更事件数据
+     */
+    private String createStateChangeEventData(Integer oldVersion, Integer newVersion, String newWorldState, String skillsState) {
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("oldVersion", oldVersion);
+            eventData.put("newVersion", newVersion);
+            eventData.put("hasWorldState", newWorldState != null && !newWorldState.trim().isEmpty());
+            eventData.put("hasSkillsState", skillsState != null && !skillsState.trim().isEmpty());
+            eventData.put("timestamp", LocalDateTime.now().toString());
+            
+            return objectMapper.writeValueAsString(eventData);
+        } catch (JsonProcessingException e) {
+            logger.warn("创建状态变更事件数据失败", e);
+            return "{}";
+        }
     }
 }
-

@@ -14,7 +14,11 @@ import java.util.List;
 @Converter
 public class StringListConverter implements AttributeConverter<List<String>, String> {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static ObjectMapper getObjectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        return objectMapper;
+    }
 
     @Override
     public String convertToDatabaseColumn(List<String> attribute) {
@@ -22,7 +26,7 @@ public class StringListConverter implements AttributeConverter<List<String>, Str
             return null;
         }
         try {
-            return objectMapper.writeValueAsString(attribute);
+            return getObjectMapper().writeValueAsString(attribute);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to convert List<String> to JSON string", e);
         }
@@ -34,7 +38,7 @@ public class StringListConverter implements AttributeConverter<List<String>, Str
             return null;
         }
         try {
-            return objectMapper.readValue(dbData, new TypeReference<List<String>>() {});
+            return getObjectMapper().readValue(dbData, new TypeReference<List<String>>() {});
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to convert JSON string to List<String>", e);
         }

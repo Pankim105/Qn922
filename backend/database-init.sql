@@ -26,6 +26,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- 删除所有数据（按依赖关系的逆序）
 DROP TABLE IF EXISTS `dm_assessments`;
+DROP TABLE IF EXISTS `convergence_status`;
 DROP TABLE IF EXISTS `world_events`;
 DROP TABLE IF EXISTS `dice_rolls`;
 DROP TABLE IF EXISTS `stability_anchors`;
@@ -84,6 +85,9 @@ CREATE TABLE IF NOT EXISTS `chat_sessions` (
   `user_id` bigint NOT NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `total_rounds` int DEFAULT 0 COMMENT '累计总轮数',
+  `current_arc_start_round` int DEFAULT NULL COMMENT '当前情节起始轮数',
+  `current_arc_name` varchar(255) DEFAULT NULL COMMENT '当前情节名称',
   -- 角色扮演相关字段
   `world_type` varchar(50) DEFAULT 'general' COMMENT '世界类型',
   `world_rules` JSON COMMENT '世界规则配置',
@@ -190,6 +194,9 @@ CREATE TABLE IF NOT EXISTS `world_events` (
   `event_type` enum('USER_ACTION','AI_RESPONSE','DICE_ROLL','QUEST_UPDATE','STATE_CHANGE','SKILL_USE','LOCATION_CHANGE','CHARACTER_UPDATE','SYSTEM_EVENT') NOT NULL,
   `event_data` JSON NOT NULL,
   `sequence` int NOT NULL,
+  `total_rounds` int DEFAULT NULL COMMENT '事件时会话总轮数',
+  `current_arc_start_round` int DEFAULT NULL COMMENT '事件时情节起始轮数',
+  `current_arc_name` varchar(255) DEFAULT NULL COMMENT '事件时情节名称',
   `timestamp` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `checksum` varchar(32) NOT NULL,
   PRIMARY KEY (`id`),
@@ -213,13 +220,29 @@ CREATE TABLE IF NOT EXISTS `dice_rolls` (
   `reason` varchar(500) COMMENT '检定原因',
   `difficulty_class` int COMMENT '难度等级',
   `is_successful` boolean COMMENT '是否成功',
-  `timestamp` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `seed` varchar(255) COMMENT '随机种子（用于重现）',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `FK_dice_rolls_session` (`session_id`),
   KEY `IDX_roll_id` (`roll_id`),
-  KEY `IDX_timestamp` (`timestamp`),
+  KEY `IDX_created_at` (`created_at`),
   CONSTRAINT `FK_dice_rolls_session` FOREIGN KEY (`session_id`) REFERENCES `chat_sessions` (`session_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 收敛状态表（存储故事收敛进度和状态）
+CREATE TABLE IF NOT EXISTS `convergence_status` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `session_id` varchar(255) NOT NULL,
+  `progress` double NOT NULL DEFAULT 0.0 COMMENT '整体收敛进度 (0-1)',
+  `nearest_scenario_id` varchar(255) COMMENT '最近的收敛场景ID',
+  `nearest_scenario_title` varchar(255) COMMENT '最近场景标题',
+  `distance_to_nearest` double COMMENT '到最近场景的距离',
+  `scenario_progress` JSON COMMENT '所有场景进度JSON',
+  `active_hints` JSON COMMENT '当前活跃的引导提示',
+  `last_updated` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `FK_convergence_status_session` (`session_id`),
+  KEY `IDX_progress` (`progress`),
+  CONSTRAINT `FK_convergence_status_session` FOREIGN KEY (`session_id`) REFERENCES `chat_sessions` (`session_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- DM评估表（存储大模型的智能评估结果）
@@ -237,6 +260,8 @@ CREATE TABLE IF NOT EXISTS `dm_assessments` (
   `quest_updates` JSON COMMENT '任务更新信息（完成、进度、奖励等）',
   `world_state_updates` JSON COMMENT '世界状态更新',
   `skills_state_updates` JSON COMMENT '技能状态更新',
+  `arc_updates` JSON COMMENT '情节更新信息（情节名称、起始轮数等）',
+  `convergence_status_updates` JSON COMMENT '收敛状态更新信息（进度、场景、提示等）',
   `assessed_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '评估时间',
   `user_action` text COMMENT '用户行为描述',
   PRIMARY KEY (`id`),
@@ -260,10 +285,28 @@ INSERT IGNORE INTO `users` (`username`, `email`, `password`, `role`, `created_at
 ('panzijian1234', 'panzijian@example.com', '$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'USER', NOW(), NOW());
 
 -- 插入世界模板数据
-INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `system_prompt_template`, `default_rules`, `convergence_scenarios`, `dm_instructions`, `convergence_rules`) VALUES
+INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `system_prompt_template`, `default_rules`, `character_templates`, `location_templates`, `quest_templates`, `stability_anchors`, `convergence_scenarios`, `dm_instructions`, `convergence_rules`) VALUES
 ('fantasy_adventure', '异世界探险', '经典的奇幻冒险世界，充满魔法、怪物和宝藏',
  '你是一个奇幻世界的游戏主持人。这个世界充满了魔法、神秘生物和古老的传说。用户是一名冒险者，你需要为他们创造引人入胜的冒险故事。规则: {world_rules}。当前状态: {world_state}',
  JSON_OBJECT('magic_system', '经典魔法体系', 'technology_level', '中世纪', 'danger_level', '中等'),
+ JSON_OBJECT(
+   'professions', JSON_ARRAY(
+     JSON_OBJECT('id', 'warrior', 'name', '战士', 'description', '近战专家，擅长剑术和防御'),
+     JSON_OBJECT('id', 'mage', 'name', '法师', 'description', '魔法大师，掌握各种法术'),
+     JSON_OBJECT('id', 'rogue', 'name', '盗贼', 'description', '敏捷灵活，擅长潜行和暗杀'),
+     JSON_OBJECT('id', 'cleric', 'name', '牧师', 'description', '神圣治疗者，驱散邪恶')
+   ),
+   'skills', JSON_ARRAY(
+     JSON_OBJECT('id', 'sword_mastery', 'name', '剑术精通', 'description', '提高近战攻击力'),
+     JSON_OBJECT('id', 'magic_affinity', 'name', '魔法亲和', 'description', '增强法术效果'),
+     JSON_OBJECT('id', 'stealth', 'name', '潜行', 'description', '降低被发现的概率'),
+     JSON_OBJECT('id', 'healing', 'name', '治疗术', 'description', '恢复生命值'),
+     JSON_OBJECT('id', 'archery', 'name', '弓箭术', 'description', '远程攻击技能'),
+     JSON_OBJECT('id', 'alchemy', 'name', '炼金术', 'description', '制作药剂和魔法物品'),
+     JSON_OBJECT('id', 'beast_taming', 'name', '野兽驯服', 'description', '与动物沟通'),
+     JSON_OBJECT('id', 'lockpicking', 'name', '开锁术', 'description', '打开各种锁具')
+   )
+ ),
  JSON_OBJECT(
    'story_convergence_1', JSON_OBJECT(
      'scenario_id', 'village_crisis',
@@ -307,12 +350,31 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
      'trigger_conditions', JSON_ARRAY('player_chose_diplomatic_approach', 'maintained_peace_long_enough')
    )
  ),
+ '{}',
+ '{}',
+ '{}',
  '作为奇幻世界的DM，你需要平衡魔法与现实，鼓励英雄主义行为，同时确保故事的连贯性和趣味性。',
  JSON_OBJECT('convergence_threshold', 0.8, 'max_exploration_turns', 50, 'story_completeness_required', 0.7)),
 
 ('western_magic', '西方魔幻', '西式魔法世界，包含法师、骑士和龙',
  '你是西方魔幻世界的向导。这里有强大的法师、勇敢的骑士、神秘的龙族和各种魔法生物。为用户创造史诗般的冒险。规则: {world_rules}。当前状态: {world_state}',
  JSON_OBJECT('magic_schools', JSON_ARRAY('元素魔法', '神圣魔法', '暗黑魔法'), 'guilds', true, 'dragons', true),
+ JSON_OBJECT(
+   'professions', JSON_ARRAY(
+     JSON_OBJECT('id', 'knight', 'name', '骑士', 'description', '荣誉的守护者，精通剑术'),
+     JSON_OBJECT('id', 'wizard', 'name', '巫师', 'description', '古老的魔法传承者'),
+     JSON_OBJECT('id', 'ranger', 'name', '游侠', 'description', '森林的守护者，擅长弓箭'),
+     JSON_OBJECT('id', 'paladin', 'name', '圣骑士', 'description', '神圣与正义的化身')
+   ),
+   'skills', JSON_ARRAY(
+     JSON_OBJECT('id', 'holy_magic', 'name', '神圣魔法', 'description', '驱散邪恶的神圣力量'),
+     JSON_OBJECT('id', 'elemental_magic', 'name', '元素魔法', 'description', '操控火、水、土、风'),
+     JSON_OBJECT('id', 'sword_techniques', 'name', '剑技', 'description', '精妙的剑术招式'),
+     JSON_OBJECT('id', 'nature_lore', 'name', '自然知识', 'description', '了解动植物和草药'),
+     JSON_OBJECT('id', 'divine_protection', 'name', '神圣护佑', 'description', '抵御邪恶攻击'),
+     JSON_OBJECT('id', 'beast_communication', 'name', '野兽沟通', 'description', '与动物交流')
+   )
+ ),
  JSON_OBJECT(
    'story_convergence_1', JSON_OBJECT(
      'scenario_id', 'academy_enrollment',
@@ -356,12 +418,31 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
      'trigger_conditions', JSON_ARRAY('player_negotiated_with_dragons', 'prevented_war')
    )
  ),
+ '{}',
+ '{}',
+ '{}',
  '作为西方魔幻世界的DM，你需要维护魔法世界的平衡，鼓励玩家探索不同的魔法流派，同时引导故事向史诗般的结局发展。',
  JSON_OBJECT('convergence_threshold', 0.75, 'max_exploration_turns', 40, 'story_completeness_required', 0.8)),
 
 ('martial_arts', '东方武侠', '充满武功、江湖恩怨的武侠世界',
  '你是武侠世界的说书人。这里有各种武功秘籍、江湖门派、侠客义士。用户将体验刀光剑影的江湖生活。规则: {world_rules}。当前状态: {world_state}',
  JSON_OBJECT('martial_arts', true, 'sects', JSON_ARRAY('少林', '武当', '峨眉'), 'weapons', JSON_ARRAY('剑', '刀', '拳法')),
+ JSON_OBJECT(
+   'professions', JSON_ARRAY(
+     JSON_OBJECT('id', 'swordsman', 'name', '剑客', 'description', '以剑为伴，追求剑道极致'),
+     JSON_OBJECT('id', 'monk', 'name', '武僧', 'description', '内外兼修，拳脚功夫了得'),
+     JSON_OBJECT('id', 'assassin', 'name', '刺客', 'description', '暗杀专家，身法如鬼魅'),
+     JSON_OBJECT('id', 'scholar', 'name', '书生', 'description', '文武双全，以智取胜')
+   ),
+   'skills', JSON_ARRAY(
+     JSON_OBJECT('id', 'sword_art', 'name', '剑法', 'description', '各种精妙剑招'),
+     JSON_OBJECT('id', 'internal_energy', 'name', '内功', 'description', '修炼内力，增强体质'),
+     JSON_OBJECT('id', 'light_footwork', 'name', '轻功', 'description', '身轻如燕，飞檐走壁'),
+     JSON_OBJECT('id', 'poison_resistance', 'name', '毒抗', 'description', '抵抗各种毒素'),
+     JSON_OBJECT('id', 'acupuncture', 'name', '点穴', 'description', '精准攻击穴位'),
+     JSON_OBJECT('id', 'meditation', 'name', '冥想', 'description', '恢复内力和精神')
+   )
+ ),
  JSON_OBJECT(
    'story_convergence_1', JSON_OBJECT(
      'scenario_id', 'sect_origin',
@@ -405,12 +486,31 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
      'trigger_conditions', JSON_ARRAY('player_mediated_conflicts', 'united_factions')
    )
  ),
+ '{}',
+ '{}',
+ '{}',
  '作为武侠世界的DM，你需要维护江湖的道义和规矩，鼓励侠义行为，同时引导故事向武林传奇的方向发展。',
  JSON_OBJECT('convergence_threshold', 0.7, 'max_exploration_turns', 35, 'story_completeness_required', 0.75)),
 
 ('japanese_school', '日式校园', '现代日本校园生活，充满青春与友情',
  '你是日式校园生活的叙述者。这里有社团活动、校园祭典、青春恋爱和友情故事。为用户创造温馨的校园体验。规则: {world_rules}。当前状态: {world_state}',
  JSON_OBJECT('setting', '现代日本', 'school_type', '高中', 'clubs', true, 'festivals', true),
+ JSON_OBJECT(
+   'professions', JSON_ARRAY(
+     JSON_OBJECT('id', 'student_council', 'name', '学生会', 'description', '学校的管理者，组织各种活动'),
+     JSON_OBJECT('id', 'athlete', 'name', '运动部', 'description', '体育健将，擅长各种运动'),
+     JSON_OBJECT('id', 'art_club', 'name', '美术部', 'description', '艺术天才，创作美丽作品'),
+     JSON_OBJECT('id', 'study_group', 'name', '学习部', 'description', '学霸聚集地，成绩优异')
+   ),
+   'skills', JSON_ARRAY(
+     JSON_OBJECT('id', 'leadership', 'name', '领导力', 'description', '组织和管理能力'),
+     JSON_OBJECT('id', 'sports', 'name', '运动技能', 'description', '各种体育项目'),
+     JSON_OBJECT('id', 'art_creation', 'name', '艺术创作', 'description', '绘画、音乐等艺术技能'),
+     JSON_OBJECT('id', 'academic_excellence', 'name', '学术优秀', 'description', '各科学习成绩优异'),
+     JSON_OBJECT('id', 'social_skills', 'name', '社交技能', 'description', '与人交往的能力'),
+     JSON_OBJECT('id', 'time_management', 'name', '时间管理', 'description', '合理安排学习和生活')
+   )
+ ),
  JSON_OBJECT(
    'story_convergence_1', JSON_OBJECT(
      'scenario_id', 'school_transfer',
@@ -454,12 +554,31 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
      'trigger_conditions', JSON_ARRAY('built_close_relationships', 'experienced_school_life')
    )
  ),
+ '{}',
+ '{}',
+ '{}',
  '作为校园生活的DM，你需要营造温暖、青春洋溢的氛围，鼓励玩家参与社团活动和人际交往，同时引导故事向成长和回忆的方向发展。',
  JSON_OBJECT('convergence_threshold', 0.6, 'max_exploration_turns', 25, 'story_completeness_required', 0.65)),
 
 ('educational', '寓教于乐', '教育性世界，通过互动学习知识',
  '你是一个教育向导，通过角色扮演和互动故事帮助用户学习各种知识。让学习变得有趣和难忘。规则: {world_rules}。当前状态: {world_state}',
  JSON_OBJECT('subjects', JSON_ARRAY('数学', '历史', '科学', '语言'), 'interactive', true, 'gamified', true),
+ JSON_OBJECT(
+   'professions', JSON_ARRAY(
+     JSON_OBJECT('id', 'math_scholar', 'name', '数学学者', 'description', '数学天才，逻辑思维强'),
+     JSON_OBJECT('id', 'history_explorer', 'name', '历史探索者', 'description', '了解古今中外历史'),
+     JSON_OBJECT('id', 'science_researcher', 'name', '科学研究者', 'description', '探索自然科学的奥秘'),
+     JSON_OBJECT('id', 'language_master', 'name', '语言大师', 'description', '掌握多种语言')
+   ),
+   'skills', JSON_ARRAY(
+     JSON_OBJECT('id', 'problem_solving', 'name', '问题解决', 'description', '分析和解决复杂问题'),
+     JSON_OBJECT('id', 'critical_thinking', 'name', '批判性思维', 'description', '独立思考和分析'),
+     JSON_OBJECT('id', 'research_methods', 'name', '研究方法', 'description', '科学的研究方法'),
+     JSON_OBJECT('id', 'communication', 'name', '沟通表达', 'description', '清晰表达自己的想法'),
+     JSON_OBJECT('id', 'creativity', 'name', '创造力', 'description', '创新思维和想象力'),
+     JSON_OBJECT('id', 'collaboration', 'name', '协作能力', 'description', '团队合作精神')
+   )
+ ),
  JSON_OBJECT(
    'story_convergence_1', JSON_OBJECT(
      'scenario_id', 'learning_begins',
@@ -503,6 +622,9 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
      'trigger_conditions', JSON_ARRAY('applied_knowledge_practically', 'solved_real_world_problems')
    )
  ),
+ '{}',
+ '{}',
+ '{}',
  '作为教育世界的DM，你需要让学习变得有趣和互动，鼓励玩家积极参与知识探索，同时确保教育目标的达成。',
  JSON_OBJECT('convergence_threshold', 0.85, 'max_exploration_turns', 30, 'story_completeness_required', 0.9)),
 
@@ -552,6 +674,9 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
      'trigger_conditions', JSON_ARRAY('ai_systems_developed', 'ethical_dilemmas_resolved')
    )
  ),
+ '{}',
+ '{}',
+ '{}',
  '作为科幻世界的DM，你需要平衡科技与人性，探索未来社会的可能性，同时引导故事向宏大的宇宙叙事发展。',
  JSON_OBJECT('convergence_threshold', 0.75, 'max_exploration_turns', 45, 'story_completeness_required', 0.8)),
 
@@ -601,6 +726,9 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
      'trigger_conditions', JSON_ARRAY('followed_unexpected_leads', 'questioned_assumptions')
    )
  ),
+ '{}',
+ '{}',
+ '{}',
  '作为侦探世界的DM，你需要制造紧张感和悬疑氛围，合理安排线索和误导，同时引导故事向真相大白的方向发展。',
  JSON_OBJECT('convergence_threshold', 0.8, 'max_exploration_turns', 25, 'story_completeness_required', 0.85));
 
@@ -611,7 +739,7 @@ INSERT IGNORE INTO `world_templates` (`world_id`, `world_name`, `description`, `
 -- 为频繁查询的字段创建复合索引
 CREATE INDEX `IDX_chat_sessions_user_world` ON `chat_sessions` (`user_id`, `world_type`, `updated_at`);
 CREATE INDEX `IDX_world_events_session_type` ON `world_events` (`session_id`, `event_type`, `timestamp`);
-CREATE INDEX `IDX_dice_rolls_session_time` ON `dice_rolls` (`session_id`, `timestamp`);
+CREATE INDEX `IDX_dice_rolls_session_time` ON `dice_rolls` (`session_id`, `created_at`);
 
 -- ===================================================================
 -- 6. 显示创建结果

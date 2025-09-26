@@ -57,6 +57,26 @@ public class DMAssessment {
     @Convert(converter = JsonObjectConverter.class)
     private Object skillsStateUpdates;    // 技能状态更新
 
+    @Column(name = "dice_rolls", columnDefinition = "TEXT")
+    @Convert(converter = JsonObjectConverter.class)
+    private Object diceRolls;             // 骰子检定结果
+
+    @Column(name = "learning_challenges", columnDefinition = "TEXT")
+    @Convert(converter = JsonObjectConverter.class)
+    private Object learningChallenges;    // 学习挑战结果
+
+    @Column(name = "state_updates", columnDefinition = "TEXT")
+    @Convert(converter = JsonObjectConverter.class)
+    private Object stateUpdates;          // 状态更新信息
+
+    @Column(name = "arc_updates", columnDefinition = "TEXT")
+    @Convert(converter = JsonObjectConverter.class)
+    private Object arcUpdates;            // 情节更新信息（情节名称、起始轮数等）
+
+    @Column(name = "convergence_status_updates", columnDefinition = "TEXT")
+    @Convert(converter = JsonObjectConverter.class)
+    private Object convergenceStatusUpdates; // 收敛状态更新信息
+
     @Column(name = "assessed_at", nullable = false)
     private LocalDateTime assessedAt;     // 评估时间
 
@@ -200,6 +220,46 @@ public class DMAssessment {
 
     public void setSkillsStateUpdates(Object skillsStateUpdates) {
         this.skillsStateUpdates = skillsStateUpdates;
+    }
+
+    public Object getDiceRolls() {
+        return diceRolls;
+    }
+
+    public void setDiceRolls(Object diceRolls) {
+        this.diceRolls = diceRolls;
+    }
+
+    public Object getLearningChallenges() {
+        return learningChallenges;
+    }
+
+    public void setLearningChallenges(Object learningChallenges) {
+        this.learningChallenges = learningChallenges;
+    }
+
+    public Object getStateUpdates() {
+        return stateUpdates;
+    }
+
+    public void setStateUpdates(Object stateUpdates) {
+        this.stateUpdates = stateUpdates;
+    }
+
+    public Object getArcUpdates() {
+        return arcUpdates;
+    }
+
+    public void setArcUpdates(Object arcUpdates) {
+        this.arcUpdates = arcUpdates;
+    }
+
+    public Object getConvergenceStatusUpdates() {
+        return convergenceStatusUpdates;
+    }
+
+    public void setConvergenceStatusUpdates(Object convergenceStatusUpdates) {
+        this.convergenceStatusUpdates = convergenceStatusUpdates;
     }
 
     /**

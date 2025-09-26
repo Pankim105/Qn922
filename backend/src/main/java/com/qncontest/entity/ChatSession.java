@@ -74,6 +74,16 @@ public class ChatSession {
     
     @Column(length = 32)
     private String checksum;
+
+    // 对话轮次与剧情情节跟踪
+    @Column(name = "total_rounds")
+    private Integer totalRounds = 0;          // 当前会话累计总轮数（每次用户请求+1）
+
+    @Column(name = "current_arc_start_round")
+    private Integer currentArcStartRound;     // 当前情节起始轮数
+
+    @Column(name = "current_arc_name")
+    private String currentArcName;            // 当前情节名称
     
     // 构造函数
     public ChatSession() {
@@ -266,5 +276,30 @@ public class ChatSession {
     
     public void setCharacterStats(String characterStats) {
         this.characterStats = characterStats;
+    }
+
+    // 轮次/情节字段的 Getters/Setters
+    public Integer getTotalRounds() {
+        return totalRounds;
+    }
+
+    public void setTotalRounds(Integer totalRounds) {
+        this.totalRounds = totalRounds;
+    }
+
+    public Integer getCurrentArcStartRound() {
+        return currentArcStartRound;
+    }
+
+    public void setCurrentArcStartRound(Integer currentArcStartRound) {
+        this.currentArcStartRound = currentArcStartRound;
+    }
+
+    public String getCurrentArcName() {
+        return currentArcName;
+    }
+
+    public void setCurrentArcName(String currentArcName) {
+        this.currentArcName = currentArcName;
     }
 }

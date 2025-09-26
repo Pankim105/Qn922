@@ -79,16 +79,19 @@ AI会自动识别和执行以下指令：
 
 ## 文档
 
-- [项目文档](PROJECT_DOCUMENTATION.md) - 完整的系统架构和开发指南
-- [API参考](API_REFERENCE.md) - API接口使用说明
-- [数据库](database-init.sql) - 数据库初始化脚本
+- [📖 完整文档](../docs/README.md) - 项目文档中心
+- [🚀 快速开始](../docs/getting-started/README.md) - 快速上手指南
+- [🏗️ 后端架构](../docs/architecture/backend-architecture.md) - 后端架构设计
+- [📚 API文档](../docs/api/README.md) - API接口文档
+- [🗄️ 数据库设计](../docs/architecture/database-design.md) - 数据库结构设计
+- [🔧 开发指南](../docs/development/README.md) - 开发环境搭建
 
 ## 测试用户
 
 | 用户名 | 密码 | 角色 |
 |--------|------|------|
 | admin | admin123 | 管理员 |
-| panzijian1234 | 123456 | 普通用户 |
+| panzijian | 123456 | 普通用户 |
 
 ## 技术栈
 
@@ -112,9 +115,10 @@ AI会自动识别和执行以下指令：
 ## 支持
 
 如有问题或建议，请查看：
-- [项目文档](PROJECT_DOCUMENTATION.md)
-- [API参考](API_REFERENCE.md)
-- [Issues](../../issues)
+- [📖 完整文档](../docs/README.md)
+- [📚 API文档](../docs/api/README.md)
+- [🛠️ 维护指南](../docs/maintenance/README.md)
+- [🐛 Issues](https://github.com/your-repo/issues)
 
 ---
 

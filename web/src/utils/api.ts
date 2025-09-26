@@ -131,7 +131,7 @@ export const streamChatRequest = async (
   let isCompleted = false;
   
   try {
-    const response = await fetch(`${api.defaults.baseURL}/chat/stream`, {
+    const response = await fetch(`${api.defaults.baseURL}/roleplay/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

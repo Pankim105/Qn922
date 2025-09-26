@@ -3,10 +3,11 @@ package com.qncontest.controller;
 import com.qncontest.dto.ChatResponse;
 import com.qncontest.dto.RoleplayRequest;
 import com.qncontest.dto.WorldTemplateResponse;
+import com.qncontest.entity.ChatSession;
 import com.qncontest.entity.DiceRoll;
 import com.qncontest.entity.User;
+import com.qncontest.service.ChatSessionService;
 import com.qncontest.service.RoleplayMemoryService;
-import com.qncontest.service.RoleplayPromptEngine;
 import com.qncontest.service.RoleplayWorldService;
 import com.qncontest.service.StreamAiService;
 import com.qncontest.service.UserDetailsServiceImpl;
@@ -25,7 +26,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 角色扮演控制器 - 处理角色扮演相关的API请求
@@ -51,9 +54,10 @@ public class RoleplayController {
 
     @Autowired
     private RoleplayMemoryService roleplayMemoryService;
-
+    
     @Autowired
-    private RoleplayPromptEngine roleplayPromptEngine;
+    private ChatSessionService chatSessionService;
+
     
     /**
      * 获取所有可用的世界模板
@@ -90,12 +94,10 @@ public class RoleplayController {
     }
     
     /**
-     * 初始化角色扮演会话
+     * 创建新的角色扮演会话
      */
-    @PostMapping("/sessions/{sessionId}/initialize")
-    public ResponseEntity<ChatResponse> initializeSession(
-            @PathVariable String sessionId,
-            @RequestBody InitializeSessionRequest request) {
+    @PostMapping("/sessions")
+    public ResponseEntity<ChatResponse> createSession(@RequestBody CreateSessionRequest request) {
         try {
             User currentUser = getCurrentUser();
             if (currentUser == null) {
@@ -104,21 +106,32 @@ public class RoleplayController {
             }
             
             // 验证世界类型
-            if (!worldTemplateService.isValidWorldType(request.getWorldType())) {
+            if (!worldTemplateService.isValidWorldType(request.getWorldId())) {
                 return ResponseEntity.status(400)
                     .body(ChatResponse.error("无效的世界类型"));
             }
             
+            // 创建新的聊天会话（后端生成会话ID）
+            ChatSession session = chatSessionService.createSession(currentUser, request.getWorldId());
+            
             // 初始化角色扮演会话
             roleplayWorldService.initializeRoleplaySession(
-                sessionId, request.getWorldType(), request.getGodModeRules(), currentUser);
+                session.getSessionId(), 
+                request.getWorldId(), 
+                request.getGodModeRules(), 
+                currentUser);
             
-            return ResponseEntity.ok(ChatResponse.success("角色扮演会话初始化成功"));
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("sessionId", session.getSessionId());
+            responseData.put("worldId", request.getWorldId());
+            responseData.put("createdAt", session.getCreatedAt());
+            
+            return ResponseEntity.ok(ChatResponse.success("角色扮演会话创建成功", responseData));
             
         } catch (Exception e) {
-            logger.error("初始化角色扮演会话失败: sessionId={}", sessionId, e);
+            logger.error("创建角色扮演会话失败", e);
             return ResponseEntity.status(500)
-                .body(ChatResponse.error("初始化角色扮演会话失败"));
+                .body(ChatResponse.error("创建角色扮演会话失败"));
         }
     }
     
@@ -233,6 +246,91 @@ public class RoleplayController {
             logger.error("获取世界状态失败: sessionId={}", sessionId, e);
             return ResponseEntity.status(500)
                 .body(ChatResponse.error("获取世界状态失败"));
+        }
+    }
+    
+    /**
+     * 获取会话消息历史
+     */
+    @GetMapping("/sessions/{sessionId}/messages")
+    public ResponseEntity<ChatResponse> getSessionMessages(@PathVariable String sessionId) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+            
+            List<ChatResponse.MessageInfo> messages = chatSessionService.getSessionMessages(sessionId, currentUser);
+            ChatResponse.MessageListData data = new ChatResponse.MessageListData(messages);
+            
+            return ResponseEntity.ok(ChatResponse.success("获取消息列表成功", data));
+            
+        } catch (Exception e) {
+            logger.error("获取会话消息失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("获取会话消息失败"));
+        }
+    }
+    
+    /**
+     * 获取会话技能状态
+     */
+    @GetMapping("/sessions/{sessionId}/skills")
+    public ResponseEntity<ChatResponse> getSessionSkills(@PathVariable String sessionId) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+            
+            ChatSession session = chatSessionService.getSessionById(sessionId);
+            if (session == null) {
+                return ResponseEntity.status(404)
+                    .body(ChatResponse.error("会话不存在"));
+            }
+            
+            return ResponseEntity.ok(ChatResponse.success("获取技能状态成功", session.getSkillsState()));
+            
+        } catch (Exception e) {
+            logger.error("获取技能状态失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("获取技能状态失败"));
+        }
+    }
+    
+    /**
+     * 获取会话状态（包括世界状态和技能状态）
+     */
+    @GetMapping("/sessions/{sessionId}/state")
+    public ResponseEntity<ChatResponse> getSessionState(@PathVariable String sessionId) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+            
+            ChatSession session = chatSessionService.getSessionById(sessionId);
+            if (session == null) {
+                return ResponseEntity.status(404)
+                    .body(ChatResponse.error("会话不存在"));
+            }
+            
+            Map<String, Object> sessionState = new HashMap<>();
+            sessionState.put("worldState", session.getWorldState());
+            sessionState.put("skillsState", session.getSkillsState());
+            sessionState.put("totalRounds", session.getTotalRounds());
+            sessionState.put("currentArcName", session.getCurrentArcName());
+            sessionState.put("currentArcStartRound", session.getCurrentArcStartRound());
+            
+            return ResponseEntity.ok(ChatResponse.success("获取会话状态成功", sessionState));
+            
+        } catch (Exception e) {
+            logger.error("获取会话状态失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("获取会话状态失败"));
         }
     }
     
@@ -401,46 +499,40 @@ public class RoleplayController {
     private User getCurrentUser() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated()) {
-                String username = authentication.getName();
-                return userDetailsService.findUserByUsername(username);
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return null;
             }
-            return null;
+
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof User) {
+                return (User) principal;
+            }
+
+            String username = authentication.getName();
+            if (username == null) {
+                return null;
+            }
+            // 回退到按用户名查询（尽量避免在SSE请求中频繁触发数据库读取）
+            return userDetailsService.findUserByUsername(username);
         } catch (Exception e) {
             logger.error("获取当前用户失败", e);
             return null;
         }
     }
     
-    /**
-     * 转换RoleplayRequest到基础ChatRequest（临时适配器）
-     */
-    private com.qncontest.dto.ChatRequest convertToBasicChatRequest(RoleplayRequest request) {
-        com.qncontest.dto.ChatRequest chatRequest = new com.qncontest.dto.ChatRequest();
-        chatRequest.setMessage(request.getMessage());
-        chatRequest.setSessionId(request.getSessionId());
-        chatRequest.setSystemPrompt(request.getSystemPrompt());
-        
-        // 转换历史消息
-        if (request.getHistory() != null) {
-            // TODO: 需要转换历史消息格式
-        }
-        
-        return chatRequest;
-    }
     
     // 内部DTO类
-    public static class InitializeSessionRequest {
-        private String worldType;
+    public static class CreateSessionRequest {
+        private String worldId;
         private String godModeRules;
         
         // Getters and Setters
-        public String getWorldType() {
-            return worldType;
+        public String getWorldId() {
+            return worldId;
         }
         
-        public void setWorldType(String worldType) {
-            this.worldType = worldType;
+        public void setWorldId(String worldId) {
+            this.worldId = worldId;
         }
         
         public String getGodModeRules() {

@@ -20,8 +20,7 @@ public interface WorldStateRepository extends JpaRepository<WorldState, Long> {
     /**
      * 获取指定会话的最新状态
      */
-    @Query("SELECT w FROM WorldState w WHERE w.sessionId = :sessionId ORDER BY w.version DESC")
-    Optional<WorldState> findLatestBySessionId(@Param("sessionId") String sessionId);
+    Optional<WorldState> findTop1BySessionIdOrderByVersionDescCreatedAtDesc(String sessionId);
     
     /**
      * 获取指定会话和版本的状态

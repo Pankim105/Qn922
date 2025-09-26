@@ -35,6 +35,7 @@ public class AuthEntryPointJwt implements AuthenticationEntryPoint {
         body.put("path", request.getServletPath());
         
         final ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
         mapper.writeValue(response.getOutputStream(), body);
     }
 }

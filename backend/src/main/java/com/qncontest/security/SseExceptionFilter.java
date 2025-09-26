@@ -107,6 +107,7 @@ public class SseExceptionFilter implements Filter {
         errorBody.put("error", e.getMessage());
         
         ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
         response.getWriter().write(mapper.writeValueAsString(errorBody));
         response.getWriter().flush();
     }

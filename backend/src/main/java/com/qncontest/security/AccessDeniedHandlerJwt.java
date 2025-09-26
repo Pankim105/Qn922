@@ -65,6 +65,7 @@ public class AccessDeniedHandlerJwt implements AccessDeniedHandler {
                     body.put("path", request.getServletPath());
                     
                     final ObjectMapper mapper = new ObjectMapper();
+                    mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
                     mapper.writeValue(response.getOutputStream(), body);
                 }
                 return;
@@ -84,6 +85,7 @@ public class AccessDeniedHandlerJwt implements AccessDeniedHandler {
         body.put("path", request.getServletPath());
         
         final ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
         mapper.writeValue(response.getOutputStream(), body);
     }
 }

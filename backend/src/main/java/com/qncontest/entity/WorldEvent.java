@@ -57,6 +57,16 @@ public class WorldEvent {
         this.eventData = eventData;
         this.sequence = sequence;
     }
+
+    // 会话轮次与剧情情节（静态快照）
+    @Column(name = "total_rounds")
+    private Integer totalRounds;              // 记录事件发生时的会话总轮数
+
+    @Column(name = "current_arc_start_round")
+    private Integer currentArcStartRound;     // 记录事件发生时的当前情节起始轮数
+
+    @Column(name = "current_arc_name")
+    private String currentArcName;            // 记录事件发生时的当前情节名称
     
     // Getters and Setters
     public Long getId() {
@@ -113,5 +123,29 @@ public class WorldEvent {
     
     public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public Integer getTotalRounds() {
+        return totalRounds;
+    }
+
+    public void setTotalRounds(Integer totalRounds) {
+        this.totalRounds = totalRounds;
+    }
+
+    public Integer getCurrentArcStartRound() {
+        return currentArcStartRound;
+    }
+
+    public void setCurrentArcStartRound(Integer currentArcStartRound) {
+        this.currentArcStartRound = currentArcStartRound;
+    }
+
+    public String getCurrentArcName() {
+        return currentArcName;
+    }
+
+    public void setCurrentArcName(String currentArcName) {
+        this.currentArcName = currentArcName;
     }
 }

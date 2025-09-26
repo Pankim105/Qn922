@@ -3,19 +3,20 @@ package com.qncontest.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qncontest.entity.DMAssessment;
+import com.qncontest.service.interfaces.AssessmentExtractorInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 
 @Service
-public class AssessmentExtractor {
+public class AssessmentExtractor implements AssessmentExtractorInterface {
 
     private static final Logger logger = LoggerFactory.getLogger(AssessmentExtractor.class);
     private static final String ASSESSMENT_START_MARKER = "§";
     private static final String ASSESSMENT_END_MARKER = "§";
     private static final int MAX_ASSESSMENT_SIZE = 10000; // 评估JSON最大长度
-
     private final ObjectMapper objectMapper;
 
     public AssessmentExtractor(ObjectMapper objectMapper) {
@@ -27,8 +28,11 @@ public class AssessmentExtractor {
      * @param fullContent 完整的AI响应内容
      * @return 提取的评估结果，如果没有找到则返回null
      */
-    public DMAssessment extractAssessment(String fullContent) {
+    public DMAssessment extractAssessmentEntity(String fullContent) {
+        logger.info("🔍 开始提取评估JSON: 内容长度={}", fullContent != null ? fullContent.length() : 0);
+        
         if (fullContent == null || fullContent.isEmpty()) {
+            logger.warn("⚠️ 输入内容为空，无法提取评估");
             return null;
         }
 
@@ -36,16 +40,18 @@ public class AssessmentExtractor {
             // 查找评估开始标记
             int startIndex = fullContent.indexOf(ASSESSMENT_START_MARKER);
             if (startIndex == -1) {
-                logger.debug("未找到评估开始标记");
+                logger.info("ℹ️ 未找到评估开始标记 §，跳过评估提取");
                 return null;
             }
+            logger.info("✅ 找到评估开始标记: 位置={}", startIndex);
 
             // 查找评估结束标记（从开始标记后开始查找）
             int endIndex = fullContent.indexOf(ASSESSMENT_END_MARKER, startIndex + 1);
             if (endIndex == -1) {
-                logger.warn("找到评估开始标记但未找到结束标记");
+                logger.warn("⚠️ 找到评估开始标记但未找到结束标记");
                 return null;
             }
+            logger.info("✅ 找到评估结束标记: 位置={}", endIndex);
 
             // 提取评估内容
             String assessmentContent = fullContent.substring(
@@ -53,21 +59,31 @@ public class AssessmentExtractor {
                 endIndex
             ).trim();
 
+            logger.info("📄 提取到评估内容: 长度={}", assessmentContent.length());
+            logger.info("📄 评估内容预览: {}", 
+                       assessmentContent.length() > 200 ? 
+                       assessmentContent.substring(0, 200) + "..." : 
+                       assessmentContent);
+
             if (assessmentContent.isEmpty()) {
-                logger.warn("评估内容为空");
+                logger.warn("⚠️ 评估内容为空");
                 return null;
             }
 
             if (assessmentContent.length() > MAX_ASSESSMENT_SIZE) {
-                logger.warn("评估内容过大，长度: {}", assessmentContent.length());
+                logger.warn("⚠️ 评估内容过大，长度: {} (最大允许: {})", assessmentContent.length(), MAX_ASSESSMENT_SIZE);
                 return null;
             }
 
-            logger.debug("提取到评估内容，长度: {}", assessmentContent.length());
-            logger.debug("评估内容: {}", assessmentContent);
-
             // 解析评估JSON
-            return parseAssessmentJson(assessmentContent);
+            DMAssessment result = parseAssessmentJson(assessmentContent);
+            if (result != null) {
+                logger.info("✅ 评估JSON提取成功: strategy={}, score={}", 
+                           result.getStrategy(), result.getOverallScore());
+            } else {
+                logger.warn("⚠️ 评估JSON解析失败");
+            }
+            return result;
 
         } catch (Exception e) {
             logger.error("提取评估内容失败", e);
@@ -80,23 +96,47 @@ public class AssessmentExtractor {
      */
     private DMAssessment parseAssessmentJson(String assessmentContent) {
         try {
+            logger.info("🔧 开始解析评估JSON: 长度={}", assessmentContent.length());
+            
             // 清理JSON内容，移除可能的注释或多余字符
             String cleanedJson = cleanJsonContent(assessmentContent);
             
+            logger.info("🧹 JSON清理完成: 原始长度={}, 清理后长度={}", 
+                       assessmentContent.length(), cleanedJson.length());
             logger.debug("清理后的评估JSON: {}", cleanedJson);
             
             // 解析为DMAssessment对象
             DMAssessment assessment = objectMapper.readValue(cleanedJson, DMAssessment.class);
             
-            logger.info("成功解析评估结果: strategy={}, score={}", 
-                       assessment.getStrategy(), assessment.getOverallScore());
+            logger.info("✅ 成功解析评估结果: strategy={}, score={}, compliance={}, consistency={}, convergence={}", 
+                       assessment.getStrategy(), assessment.getOverallScore(),
+                       assessment.getRuleCompliance(), assessment.getContextConsistency(), 
+                       assessment.getConvergenceProgress());
+            
+            // 记录各个字段的解析情况
+            logAssessmentFields(assessment);
             
             return assessment;
             
         } catch (JsonProcessingException e) {
-            logger.error("解析评估JSON失败: {}", assessmentContent, e);
+            logger.error("❌ 解析评估JSON失败: {}", assessmentContent, e);
             return null;
         }
+    }
+    
+    /**
+     * 记录评估字段的解析情况
+     */
+    private void logAssessmentFields(DMAssessment assessment) {
+        logger.info("📊 评估字段解析情况:");
+        logger.info("  - diceRolls: {}", assessment.getDiceRolls() != null ? "有数据" : "无数据");
+        logger.info("  - learningChallenges: {}", assessment.getLearningChallenges() != null ? "有数据" : "无数据");
+        logger.info("  - stateUpdates: {}", assessment.getStateUpdates() != null ? "有数据" : "无数据");
+        logger.info("  - questUpdates: {}", assessment.getQuestUpdates() != null ? "有数据" : "无数据");
+        logger.info("  - worldStateUpdates: {}", assessment.getWorldStateUpdates() != null ? "有数据" : "无数据");
+        logger.info("  - skillsStateUpdates: {}", assessment.getSkillsStateUpdates() != null ? "有数据" : "无数据");
+        logger.info("  - arcUpdates: {}", assessment.getArcUpdates() != null ? "有数据" : "无数据");
+        logger.info("  - convergenceStatusUpdates: {}", assessment.getConvergenceStatusUpdates() != null ? "有数据" : "无数据");
     }
 
     /**
@@ -180,5 +220,80 @@ public class AssessmentExtractor {
             logger.error("移除评估内容失败", e);
             return fullContent;
         }
+    }
+    
+    // ==================== 接口实现 ====================
+    
+    /**
+     * 从AI回复中提取评估信息
+     */
+    @Override
+    public Map<String, Object> extractAssessment(String aiResponse) {
+        DMAssessment assessment = extractAssessmentEntity(aiResponse);
+        if (assessment == null) {
+            return null;
+        }
+        
+        try {
+            // 将DMAssessment转换为Map
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = objectMapper.convertValue(assessment, Map.class);
+            return result;
+        } catch (Exception e) {
+            logger.error("转换评估结果为Map失败", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 验证评估格式是否正确
+     */
+    @Override
+    public boolean validateAssessment(Map<String, Object> assessment) {
+        if (assessment == null) {
+            return false;
+        }
+        
+        // 检查必需字段
+        String[] requiredFields = {
+            "ruleCompliance", "contextConsistency", "convergenceProgress", 
+            "overallScore", "strategy"
+        };
+        
+        for (String field : requiredFields) {
+            if (!assessment.containsKey(field)) {
+                logger.warn("评估缺少必需字段: {}", field);
+                return false;
+            }
+        }
+        
+        // 验证strategy字段值
+        Object strategy = assessment.get("strategy");
+        if (strategy == null || !strategy.toString().matches("ACCEPT|ADJUST|CORRECT")) {
+            logger.warn("无效的strategy值: {}", strategy);
+            return false;
+        }
+        
+        // 验证数值字段范围
+        try {
+            double ruleCompliance = Double.parseDouble(assessment.get("ruleCompliance").toString());
+            double contextConsistency = Double.parseDouble(assessment.get("contextConsistency").toString());
+            double convergenceProgress = Double.parseDouble(assessment.get("convergenceProgress").toString());
+            double overallScore = Double.parseDouble(assessment.get("overallScore").toString());
+            
+            if (ruleCompliance < 0 || ruleCompliance > 1 ||
+                contextConsistency < 0 || contextConsistency > 1 ||
+                convergenceProgress < 0 || convergenceProgress > 1 ||
+                overallScore < 0 || overallScore > 1) {
+                logger.warn("评估分数超出有效范围 [0,1]");
+                return false;
+            }
+            
+        } catch (NumberFormatException e) {
+            logger.warn("评估分数格式无效", e);
+            return false;
+        }
+        
+        return true;
     }
 }

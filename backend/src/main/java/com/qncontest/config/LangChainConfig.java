@@ -2,8 +2,6 @@ package com.qncontest.config;
 
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.StreamingResponseHandler;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.dashscope.QwenStreamingChatModel;
@@ -23,13 +21,13 @@ public class LangChainConfig {
     @Value("${langchain4j.dashscope.api-key:}")
     private String dashscopeApiKey;
     
-    @Value("${langchain4j.dashscope.model-name:qwen-plus}")
+    @Value("${langchain4j.dashscope.model-name}")
     private String modelName;
     
-    @Value("${langchain4j.dashscope.temperature:0.7}")
+    @Value("${langchain4j.dashscope.temperature}")
     private Float temperature;
     
-    @Value("${langchain4j.dashscope.max-tokens:2000}")
+    @Value("${langchain4j.dashscope.max-tokens}")
     private Integer maxTokens;
     
     @Bean

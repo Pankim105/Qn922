@@ -6,6 +6,7 @@ import com.qncontest.entity.User;
 import com.qncontest.repository.ChatMessageRepository;
 import com.qncontest.repository.ChatSessionRepository;
 import com.qncontest.dto.ChatResponse;
+import com.qncontest.service.interfaces.ChatSessionManagerInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-public class ChatSessionService {
+public class ChatSessionService implements ChatSessionManagerInterface {
     
     private static final Logger logger = LoggerFactory.getLogger(ChatSessionService.class);
     
@@ -58,23 +59,77 @@ public class ChatSessionService {
     }
     
     /**
+     * 创建新的聊天会话
+     */
+    @Transactional
+    public ChatSession createSession(User user, String worldType) {
+        String sessionId;
+        int guard = 0;
+        do {
+            sessionId = generateSessionId();
+            guard++;
+        } while (chatSessionRepository.existsById(sessionId) && guard < 5);
+        
+        logger.debug("创建新的角色扮演会话: sessionId={}, worldType={}, userId={}", 
+                    sessionId, worldType, user.getId());
+        
+        ChatSession newSession = new ChatSession(sessionId, "新对话", user);
+        newSession.setWorldType(worldType != null ? worldType : "general");
+        
+        return chatSessionRepository.save(newSession);
+    }
+    
+    /**
      * 获取或创建聊天会话
      */
     @Transactional
     public ChatSession getOrCreateSession(String sessionId, User user) {
+        // 未提供ID则生成全局唯一ID
         if (sessionId == null || sessionId.trim().isEmpty()) {
-            // 创建新会话
-            sessionId = generateSessionId();
+            String generated;
+            int guard = 0;
+            do {
+                generated = generateSessionId();
+                guard++;
+            } while (chatSessionRepository.existsById(generated) && guard < 5);
+            sessionId = generated;
+            logger.debug("生成新的会话ID: {}", sessionId);
         }
-        
+
+        // 如果提供了ID，先全局查询是否已存在（避免不同用户下重复创建导致PK冲突）
+        Optional<ChatSession> byId = chatSessionRepository.findById(sessionId);
+        if (byId.isPresent()) {
+            ChatSession found = byId.get();
+            // 可选：如需强制归属检查，这里仅记录日志
+            if (found.getUser() != null && user != null && !found.getUser().getId().equals(user.getId())) {
+                logger.warn("会话ID已存在且归属不同用户: sessionId={}, ownerId={}, currentUserId={}",
+                        sessionId, found.getUser().getId(), user.getId());
+            }
+            return found;
+        }
+
+        // 用户维度下也检查一次，若不存在则创建
         Optional<ChatSession> existingSession = chatSessionRepository.findBySessionIdAndUser(sessionId, user);
         if (existingSession.isPresent()) {
             return existingSession.get();
         }
-        
-        // 创建新会话
-        ChatSession newSession = new ChatSession(sessionId, "新对话", user);
-        return chatSessionRepository.save(newSession);
+
+        // 使用 try-catch 处理并发插入冲突
+        try {
+            ChatSession newSession = new ChatSession(sessionId, "新对话", user);
+            return chatSessionRepository.save(newSession);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 主键冲突，说明其他线程已经创建了该会话，重新查询
+            logger.warn("检测到主键冲突，重新查询会话: sessionId={}, error={}", sessionId, e.getMessage());
+            Optional<ChatSession> retrySession = chatSessionRepository.findById(sessionId);
+            if (retrySession.isPresent()) {
+                logger.info("成功获取到已存在的会话: sessionId={}", sessionId);
+                return retrySession.get();
+            }
+            // 如果仍然找不到，抛出原始异常
+            logger.error("主键冲突后仍无法找到会话: sessionId={}", sessionId);
+            throw e;
+        }
     }
     
     /**
@@ -106,6 +161,14 @@ public class ChatSessionService {
      */
     @Transactional
     public ChatMessage saveUserMessage(ChatSession session, String content) {
+        // 每次用户请求视为一轮，对应会话总轮数+1
+        Integer currentRounds = session.getTotalRounds() == null ? 0 : session.getTotalRounds();
+        session.setTotalRounds(currentRounds + 1);
+        // 首次设置情节起始轮数
+        if (session.getCurrentArcStartRound() == null) {
+            session.setCurrentArcStartRound(session.getTotalRounds());
+        }
+        chatSessionRepository.save(session);
         Integer nextSequenceNumber = getNextSequenceNumber(session);
         ChatMessage userMessage = new ChatMessage(session, ChatMessage.MessageRole.USER, content, nextSequenceNumber);
         return chatMessageRepository.save(userMessage);
@@ -137,7 +200,26 @@ public class ChatSessionService {
      */
     @Transactional(readOnly = true)
     public ChatSession getSessionWithMessages(String sessionId) {
-        return chatSessionRepository.findBySessionIdWithMessages(sessionId);
+        return chatSessionRepository.findBySessionIdWithMessages(sessionId).orElse(null);
+    }
+    
+    /**
+     * 根据会话ID获取会话
+     */
+    @Transactional(readOnly = true)
+    public ChatSession getSessionById(String sessionId) {
+        return chatSessionRepository.findBySessionIdWithMessages(sessionId).orElse(null);
+    }
+    
+    /**
+     * 保存会话
+     */
+    @Transactional
+    public ChatSession saveSession(ChatSession session) {
+        logger.info("💾 保存会话到数据库: sessionId={}, version={}", session.getSessionId(), session.getVersion());
+        ChatSession savedSession = chatSessionRepository.save(session);
+        logger.info("✅ 会话保存完成: sessionId={}, 新version={}", savedSession.getSessionId(), savedSession.getVersion());
+        return savedSession;
     }
     
     /**
@@ -189,7 +271,7 @@ public class ChatSessionService {
      * 生成会话ID
      */
     private String generateSessionId() {
-        return "session_" + System.currentTimeMillis() + "_" + 
-               Long.toHexString(System.nanoTime()).substring(0, 8);
+        return "session_" + System.currentTimeMillis() + "_" +
+               Long.toHexString(Double.doubleToLongBits(Math.random())).substring(0, 8);
     }
 }

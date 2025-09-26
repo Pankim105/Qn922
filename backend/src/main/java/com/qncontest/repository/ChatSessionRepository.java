@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.lang.NonNull;
 
 @Repository
 public interface ChatSessionRepository extends JpaRepository<ChatSession, String> {
@@ -43,5 +44,10 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, String
      * 根据会话ID查找会话，并预加载消息
      */
     @Query("SELECT cs FROM ChatSession cs LEFT JOIN FETCH cs.messages WHERE cs.sessionId = :sessionId")
-    ChatSession findBySessionIdWithMessages(@Param("sessionId") String sessionId);
+    Optional<ChatSession> findBySessionIdWithMessages(@Param("sessionId") String sessionId);
+
+    /**
+     * 判断主键是否存在（用于避免PK冲突时的重试生成）
+     */
+    boolean existsById(@NonNull String sessionId);
 }
