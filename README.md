@@ -21,17 +21,12 @@
 | 日式校园 | 校园向导 | 社团、祭典、青春 |
 | 寓教于乐 | 智慧导师 | 学习、挑战、成长 |
 
-## 🎬 演示视频
+## 🎬 系统演示
 
-观看系统演示视频，了解核心功能：
+### 界面预览
+![QN Contest 系统演示](demo.png)
 
-### 在线播放
-<video width="800" controls>
-  <source src="demoPre.mp4" type="video/mp4">
-  您的浏览器不支持视频播放。
-</video>
-
-### 下载观看
+### 功能演示视频
 [![QN Contest 演示视频](https://img.shields.io/badge/📹-下载演示视频-blue?style=for-the-badge)](demoPre.mp4)
 
 > **演示内容**：
