@@ -86,9 +86,7 @@ npm run dev
 - [🚀 快速开始](docs/getting-started/README.md) - 快速上手指南
 - [🏗️ 系统架构](docs/architecture/README.md) - 架构设计文档
 - [⭐ 功能特性](docs/features/README.md) - 功能模块详解
-- [📚 API文档](docs/api/README.md) - API接口文档
-- [🔧 开发指南](docs/development/README.md) - 开发环境搭建
-- [🛠️ 维护指南](docs/maintenance/README.md) - 系统维护文档
+- [📚 API文档](backend/API_REFERENCE.md) - API接口文档
 
 ## 技术栈
 
@@ -142,7 +140,7 @@ qncontest/
 
 ### 🧠 记忆系统
 - 智能记忆存储和检索
-- 8种记忆类型自动分类
+- 多种记忆类型自动分类
 - 重要性评估和自动清理
 
 ### 🌍 世界模板系统
@@ -160,13 +158,13 @@ qncontest/
 - [x] 基础聊天系统
 - [x] 用户认证系统
 - [x] 角色扮演功能
-- [x] LangChain优化
+- [x] LangChain集成
 - [x] 技能动作系统
 - [x] 记忆管理系统
 - [x] 接口架构重构
-- [x] 语音交互系统 
-- [x] 高级UI组件库 
-- [x] 性能优化组件 
+- [x] 语音交互系统（前端）
+- [x] UI组件库
+- [ ] 语音处理后端
 - [ ] 向量数据库集成
 - [ ] 多模态支持
 
@@ -185,5 +183,4 @@ qncontest/
 
 **开始您的角色扮演之旅吧！** 🎭
 
-**版本**: 2.1.0  
 **许可证**: MIT
