@@ -1273,77 +1273,16 @@ JSON字段使用原则：
             eventInfo.append(String.format("[%s] ", event.getEventType().name()));
             eventInfo.append(String.format("序列%d ", event.getSequence()));
             
-            // 解析事件数据
+            // 直接发送原始事件数据JSON，而不是解析后的内容
             if (event.getEventData() != null && !event.getEventData().trim().isEmpty()) {
-                JsonNode eventData = objectMapper.readTree(event.getEventData());
-                
-                // 根据事件类型格式化不同的信息
-                switch (event.getEventType()) {
-                    case USER_ACTION:
-                        if (eventData.has("action")) {
-                            eventInfo.append(String.format("用户行动: %s", eventData.get("action").asText()));
-                        }
-                        break;
-                    case AI_RESPONSE:
-                        if (eventData.has("response")) {
-                            String response = eventData.get("response").asText();
-                            // 截取前100个字符
-                            if (response.length() > 100) {
-                                response = response.substring(0, 100) + "...";
-                            }
-                            eventInfo.append(String.format("AI回复: %s", response));
-                        }
-                        break;
-                    case DICE_ROLL:
-                        if (eventData.has("diceType") && eventData.has("result")) {
-                            eventInfo.append(String.format("骰子检定: d%d = %d", 
-                                eventData.get("diceType").asInt(), 
-                                eventData.get("result").asInt()));
-                        }
-                        break;
-                    case QUEST_UPDATE:
-                        if (eventData.has("questId") && eventData.has("status")) {
-                            eventInfo.append(String.format("任务更新: %s - %s", 
-                                eventData.get("questId").asText(),
-                                eventData.get("status").asText()));
-                        }
-                        break;
-                    case STATE_CHANGE:
-                        if (eventData.has("change")) {
-                            eventInfo.append(String.format("状态变更: %s", eventData.get("change").asText()));
-                        }
-                        break;
-                    case LOCATION_CHANGE:
-                        if (eventData.has("from") && eventData.has("to")) {
-                            eventInfo.append(String.format("地点变更: %s -> %s", 
-                                eventData.get("from").asText(),
-                                eventData.get("to").asText()));
-                        }
-                        break;
-                    case CHARACTER_UPDATE:
-                        if (eventData.has("character") && eventData.has("change")) {
-                            eventInfo.append(String.format("角色更新: %s - %s", 
-                                eventData.get("character").asText(),
-                                eventData.get("change").asText()));
-                        }
-                        break;
-                    case MEMORY_UPDATE:
-                        if (eventData.has("content")) {
-                            String content = eventData.get("content").asText();
-                            if (content.length() > 50) {
-                                content = content.substring(0, 50) + "...";
-                            }
-                            eventInfo.append(String.format("记忆更新: %s", content));
-                        }
-                        break;
-                    case SYSTEM_EVENT:
-                        if (eventData.has("description")) {
-                            eventInfo.append(String.format("系统事件: %s", eventData.get("description").asText()));
-                        }
-                        break;
-                    default:
-                        eventInfo.append("未知事件类型");
-                        break;
+                // 验证JSON格式（但不使用解析结果，直接发送原始数据）
+                try {
+                    objectMapper.readTree(event.getEventData());
+                    // JSON格式有效，直接发送原始数据
+                    eventInfo.append("事件数据: ").append(event.getEventData());
+                } catch (Exception jsonException) {
+                    // JSON格式无效，仍然发送原始字符串
+                    eventInfo.append("事件数据: ").append(event.getEventData());
                 }
             } else {
                 eventInfo.append("无事件数据");
