@@ -11,6 +11,10 @@ const WorldSelector: React.FC<WorldSelectorProps> = ({
   // 确保worlds是数组，如果不是则使用空数组
   const safeWorlds = Array.isArray(worlds) ? worlds : [];
   
+  // 调试信息
+  console.log('WorldSelector - worlds:', safeWorlds);
+  console.log('WorldSelector - worldIcons keys:', Object.keys(worldIcons));
+  
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-600 dark:text-gray-400">选择一个世界开始冒险：</p>
@@ -25,7 +29,7 @@ const WorldSelector: React.FC<WorldSelectorProps> = ({
               className="flex items-center gap-2 justify-start p-3 h-auto"
               disabled={isLoading}
             >
-              {worldIcons[world.worldId as keyof typeof worldIcons]}
+              {worldIcons[world.worldId as keyof typeof worldIcons] || <span className="w-4 h-4">❓</span>}
               <div className="text-left">
                 <div className="font-medium">{world.worldName}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 truncate">

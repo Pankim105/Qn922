@@ -1,0 +1,625 @@
+/* 高级材质和纹理渲染系统 */
+
+/* 标签绝对定位样式 */
+.dialogue-label {
+  position: absolute !important;
+  top: -4px !important;
+  left: -4px !important;
+  transform: translateY(-2px) translateX(-2px) !important;
+  z-index: 10 !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.dark .dialogue-label {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* 强制覆盖所有可能的背景色 */
+.scene-description,
+.character-action,
+.npc-dialogue,
+.environment-change,
+.sound-effect,
+.character-monologue,
+.npc-entrance,
+.environment-atmosphere,
+.npc-whisper {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* 重新应用材质效果 */
+.scene-description {
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.3) 0%, transparent 50%) !important;
+}
+
+.character-action {
+  background: 
+    linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%) !important;
+}
+
+.npc-dialogue {
+  background: 
+    linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%) !important;
+}
+
+.environment-change {
+  background: 
+    linear-gradient(135deg, rgba(251, 146, 60, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%) !important;
+}
+
+.sound-effect {
+  background: 
+    linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%) !important;
+}
+
+.character-monologue {
+  background: 
+    linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.1) 100%) !important;
+}
+
+.npc-entrance {
+  background: 
+    linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(219, 39, 119, 0.1) 100%) !important;
+}
+
+.environment-atmosphere {
+  background: 
+    linear-gradient(135deg, rgba(20, 184, 166, 0.1) 0%, rgba(13, 148, 136, 0.1) 100%) !important;
+}
+
+.npc-whisper {
+  background: 
+    linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%) !important;
+}
+
+/* 毛玻璃效果 */
+.glass-effect {
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+.glass-effect-dark {
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(17, 25, 40, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+/* 纸张质感 */
+.paper-texture {
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(0,0,0,0.15) 1px, transparent 0);
+  background-size: 20px 20px;
+  background-color: #fefefe;
+  position: relative;
+}
+
+.paper-texture::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%),
+    linear-gradient(-45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+.paper-texture-dark {
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0);
+  background-size: 20px 20px;
+  background-color: #1a1a1a;
+}
+
+.paper-texture-dark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%),
+    linear-gradient(-45deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* 金属质感 */
+.metal-texture {
+  background: linear-gradient(135deg, 
+    #e8e8e8 0%, 
+    #f5f5f5 25%, 
+    #e8e8e8 50%, 
+    #d0d0d0 75%, 
+    #e8e8e8 100%);
+  background-size: 20px 20px;
+  position: relative;
+  box-shadow: 
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -1px 0 rgba(0,0,0,0.1),
+    0 2px 4px rgba(0,0,0,0.1);
+}
+
+.metal-texture::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%),
+    linear-gradient(0deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+.metal-texture-dark {
+  background: linear-gradient(135deg, 
+    #2a2a2a 0%, 
+    #3a3a3a 25%, 
+    #2a2a2a 50%, 
+    #1a1a1a 75%, 
+    #2a2a2a 100%);
+  background-size: 20px 20px;
+  box-shadow: 
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    inset 0 -1px 0 rgba(0,0,0,0.3),
+    0 2px 4px rgba(0,0,0,0.3);
+}
+
+.metal-texture-dark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%),
+    linear-gradient(0deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+/* 皮革质感 */
+.leather-texture {
+  background: 
+    radial-gradient(ellipse at center, rgba(139, 69, 19, 0.1) 0%, transparent 70%),
+    linear-gradient(45deg, #8b4513 0%, #a0522d 50%, #8b4513 100%);
+  background-size: 30px 30px, 100% 100%;
+  position: relative;
+}
+
+.leather-texture::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.1) 2px,
+      rgba(0,0,0,0.1) 4px
+    );
+  pointer-events: none;
+}
+
+/* 木纹质感 */
+.wood-texture {
+  background: 
+    linear-gradient(90deg, 
+      #8b4513 0%, 
+      #a0522d 20%, 
+      #8b4513 40%, 
+      #654321 60%, 
+      #8b4513 80%, 
+      #a0522d 100%);
+  background-size: 100px 100%;
+  position: relative;
+}
+
+.wood-texture::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% 120%, rgba(0,0,0,0.1) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 30% at 20% 40%, rgba(0,0,0,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 20% at 80% 60%, rgba(0,0,0,0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* 渐变纹理 */
+.gradient-texture-1 {
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.15) 0%, 
+    rgba(220, 38, 38, 0.15) 25%, 
+    rgba(251, 146, 60, 0.15) 50%, 
+    rgba(245, 158, 11, 0.15) 75%, 
+    rgba(239, 68, 68, 0.15) 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+}
+
+.gradient-texture-2 {
+  background: linear-gradient(135deg, 
+    rgba(236, 72, 153, 0.15) 0%, 
+    rgba(219, 39, 119, 0.15) 25%, 
+    rgba(251, 146, 60, 0.15) 50%, 
+    rgba(245, 158, 11, 0.15) 75%, 
+    rgba(236, 72, 153, 0.15) 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 6s ease infinite;
+}
+
+.gradient-texture-3 {
+  background: linear-gradient(135deg, 
+    #a8edea 0%, 
+    #fed6e3 25%, 
+    #d299c2 50%, 
+    #fef9d7 75%, 
+    #a8edea 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 10s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 文字效果 */
+.text-glow {
+  text-shadow: 
+    0 0 5px currentColor,
+    0 0 10px currentColor,
+    0 0 15px currentColor;
+}
+
+.text-shadow-soft {
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.text-shadow-strong {
+  text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* 特殊字符装饰 */
+.quote-decoration::before {
+  content: '"';
+  font-size: 2em;
+  color: rgba(0,0,0,0.2);
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  font-family: serif;
+}
+
+.quote-decoration::after {
+  content: '"';
+  font-size: 2em;
+  color: rgba(0,0,0,0.2);
+  position: absolute;
+  bottom: -20px;
+  right: -10px;
+  font-family: serif;
+}
+
+/* 高级卡片效果 */
+.advanced-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.advanced-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255,255,255,0.2), 
+    transparent);
+  transition: left 0.5s;
+}
+
+.advanced-card:hover::before {
+  left: 100%;
+}
+
+/* 场景描述专用样式 */
+.scene-description {
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.3) 0%, transparent 50%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+/* 角色动作专用样式 */
+.character-action {
+  background: 
+    linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%) !important;
+  border-left: 4px solid #22c55e;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.character-action::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #22c55e 0%, #10b981 100%);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+/* NPC对话专用样式 */
+.npc-dialogue {
+  background: 
+    linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%) !important;
+  border-left: 4px solid #a855f7;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.npc-dialogue::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #a855f7 0%, #9333ea 100%);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+/* 环境变化专用样式 */
+.environment-change {
+  background: 
+    linear-gradient(135deg, rgba(251, 146, 60, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%) !important;
+  border-left: 4px solid #fb923c;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.environment-change::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #fb923c 0%, #f59e0b 100%);
+  box-shadow: 0 0 10px rgba(251, 146, 60, 0.5);
+}
+
+/* 声音效果专用样式 */
+.sound-effect {
+  background: 
+    linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%) !important;
+  border-left: 4px solid #ef4444;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.sound-effect::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+/* 角色内心独白专用样式 */
+.character-monologue {
+  background: 
+    linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.1) 100%) !important;
+  border-left: 4px solid #6366f1;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.character-monologue::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+
+/* NPC登场专用样式 */
+.npc-entrance {
+  background: 
+    linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(219, 39, 119, 0.1) 100%) !important;
+  border-left: 4px solid #ec4899;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.npc-entrance::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #ec4899 0%, #db2777 100%);
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+}
+
+/* 环境氛围专用样式 */
+.environment-atmosphere {
+  background: 
+    linear-gradient(135deg, rgba(20, 184, 166, 0.1) 0%, rgba(13, 148, 136, 0.1) 100%) !important;
+  border-left: 4px solid #14b8a6;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.environment-atmosphere::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #14b8a6 0%, #0d9488 100%);
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.5);
+}
+
+/* NPC低语专用样式 */
+.npc-whisper {
+  background: 
+    linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%) !important;
+  border-left: 4px solid #f59e0b;
+  position: relative;
+  padding-top: 2rem; /* 为标签留出空间 */
+}
+
+.npc-whisper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .glass-effect,
+  .glass-effect-dark {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  .paper-texture,
+  .paper-texture-dark {
+    background-size: 15px 15px;
+  }
+  
+  .metal-texture,
+  .metal-texture-dark {
+    background-size: 15px 15px;
+  }
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s ease-out;
+}
+
+/* 高级阴影效果 */
+.shadow-advanced {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.shadow-advanced-dark {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -1px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* 文字渐变效果 */
+.text-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-warm {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-cool {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

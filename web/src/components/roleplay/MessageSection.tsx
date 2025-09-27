@@ -3,13 +3,14 @@ import { Button } from 'modern-ui-components';
 import type { MessageSectionProps, MessageSection as MessageSectionType } from './types';
 import { sectionIcons, getCardConfig } from './constants';
 import { isContentEmpty } from './messageParser';
-import { 
-  formatQuestTextContent, 
-  formatQuestContent, 
-  formatStatusContent, 
+import {
+  formatQuestTextContent,
+  formatQuestContent,
+  formatStatusContent,
   formatChoicesContent,
-  formatAssessmentTextContent, 
-  formatAssessmentContent 
+  formatAssessmentTextContent,
+  formatAssessmentContent,
+  formatDialogueContent
 } from './messageFormatter';
 
 const MessageSection: React.FC<MessageSectionProps> = ({ 
@@ -41,7 +42,7 @@ const MessageSection: React.FC<MessageSectionProps> = ({
         case 'choices':
           return `${baseStyle} bg-gradient-to-br from-purple-900/60 to-purple-800/40 border-purple-400/60 text-purple-100 shadow-purple-500/20`;
         case 'dialogue':
-          return `${baseStyle} bg-gradient-to-br from-amber-900/60 to-amber-800/40 border-amber-400/60 text-amber-100 shadow-amber-500/20`;
+          return `${baseStyle} bg-transparent border-slate-400/70 text-slate-100 shadow-slate-500/30 backdrop-blur-md`;
         case 'quests':
           return `${baseStyle} bg-gradient-to-br from-indigo-900/60 to-indigo-800/40 border-indigo-400/60 text-indigo-100 shadow-indigo-500/20`;
         case 'assessment':
@@ -58,7 +59,7 @@ const MessageSection: React.FC<MessageSectionProps> = ({
         case 'choices':
           return `${baseStyle} bg-gradient-to-br from-purple-100/90 to-purple-50/70 border-purple-500/70 text-purple-900 shadow-purple-500/30`;
         case 'dialogue':
-          return `${baseStyle} bg-gradient-to-br from-amber-100/90 to-amber-50/70 border-amber-500/70 text-amber-900 shadow-amber-500/30`;
+          return `${baseStyle} bg-transparent border-slate-500/80 text-slate-900 shadow-slate-500/40 backdrop-blur-sm`;
         case 'quests':
           return `${baseStyle} bg-gradient-to-br from-indigo-100/90 to-indigo-50/70 border-indigo-500/70 text-indigo-900 shadow-indigo-500/30`;
         case 'assessment':
@@ -72,11 +73,19 @@ const MessageSection: React.FC<MessageSectionProps> = ({
   // 缓存解析结果，避免重复计算
   const parseSectionContent = (section: MessageSectionType) => {
     let result: any = null;
-    
+
+    // 对话信息解析
+    if (section.type === 'dialogue') {
+      result = {
+        type: 'markdown',
+        formatted: formatDialogueContent(section.content)
+      };
+    }
+
     // 任务信息解析
-    if (section.type === 'quests') {
+    else if (section.type === 'quests') {
       const isJsonFormat = section.content.trim().startsWith('{') && section.content.trim().endsWith('}');
-      
+
       if (isJsonFormat) {
         try {
           const questData = JSON.parse(section.content);
@@ -98,11 +107,11 @@ const MessageSection: React.FC<MessageSectionProps> = ({
         };
       }
     }
-    
+
     // 评估信息解析
     else if (section.type === 'assessment') {
       const isJsonFormat = section.content.trim().startsWith('{') && section.content.trim().endsWith('}');
-      
+
       if (isJsonFormat) {
         try {
           const assessmentData = JSON.parse(section.content);
@@ -125,7 +134,7 @@ const MessageSection: React.FC<MessageSectionProps> = ({
         };
       }
     }
-    
+
     // 状态和世界信息解析
     else if (section.type === 'status' || section.type === 'world') {
       result = {
@@ -133,7 +142,7 @@ const MessageSection: React.FC<MessageSectionProps> = ({
         formatted: formatStatusContent(section.content)
       };
     }
-    
+
     // 选择信息解析
     else if (section.type === 'choices') {
       result = {
@@ -141,7 +150,7 @@ const MessageSection: React.FC<MessageSectionProps> = ({
         formatted: formatChoicesContent(section.content)
       };
     }
-    
+
     return result;
   };
 
@@ -369,10 +378,44 @@ const MessageSection: React.FC<MessageSectionProps> = ({
     );
   }
 
+  // 特殊处理对话内容 - 使用格式化函数渲染不同的对话元素
+  if (section.type === 'dialogue') {
+    const parsedContent = parseSectionContent(section);
+
+    // 检查对话内容是否为空
+    let hasValidContent = false;
+    if (parsedContent?.formatted && parsedContent.formatted.trim()) {
+      hasValidContent = true;
+    } else if (section.content && !isContentEmpty(section.content)) {
+      const trimmedContent = section.content.trim();
+      if (trimmedContent && trimmedContent.length > 5) {
+        hasValidContent = true;
+      }
+    }
+
+    // 如果没有有效内容，不渲染对话卡片
+    if (!hasValidContent) {
+      return null;
+    }
+
+    return (
+      <div key={index} className={`${getCardConfig(section.type).cols} ${getSectionStyle(section.type)}`}>
+        <div className="flex items-center gap-2 font-bold text-sm mb-3 opacity-95">
+          {section.icon || getSectionIcon(section.type)}
+          <span className="text-shadow-sm">{section.title}</span>
+        </div>
+        <div
+          className="bg-transparent"
+          dangerouslySetInnerHTML={{ __html: parsedContent?.formatted || formatDialogueContent(section.content) }}
+        />
+      </div>
+    );
+  }
+
   // 特殊处理markdown格式的状态和世界信息
   if (section.type === 'status' || section.type === 'world') {
     const parsedContent = parseSectionContent(section);
-    
+
     // 检查状态和世界信息是否为空
     let hasValidContent = false;
     if (parsedContent?.formatted && parsedContent.formatted.trim()) {
@@ -383,12 +426,12 @@ const MessageSection: React.FC<MessageSectionProps> = ({
         hasValidContent = true;
       }
     }
-    
+
     // 如果没有有效内容，不渲染状态/世界卡片
     if (!hasValidContent) {
       return null;
     }
-    
+
     return (
       <div key={index} className={`${getCardConfig(section.type).cols} ${getSectionStyle(section.type)}`}>
         <div className="flex items-center gap-2 font-bold text-sm mb-3 opacity-95">

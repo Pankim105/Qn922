@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, CardHeader, CardTitle, CardContent, ThemeSwitcher } from 'modern-ui-components';
-import { User, LogIn, LogOut, Menu, X } from 'lucide-react';
+import { User, LogIn, LogOut, Menu, X, TestTube, Gamepad2 } from 'lucide-react';
 import AuthModal from './components/AuthModal';
 import UserProfile from './components/UserProfile';
 import RoleplayChat from './components/roleplay/RoleplayChat';
+import RoleplayTestDemo from './components/roleplay/RoleplayTestDemo';
 import WorldStateDisplay from './components/roleplay/WorldStateDisplay';
 
 interface User {
@@ -21,6 +22,8 @@ function App() {
   const [currentTheme, setCurrentTheme] = useState('blue');
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isTestMode, setIsTestMode] = useState(false);
+  const [useOptimizedComponents, setUseOptimizedComponents] = useState(true);
 
   // 检查本地存储中的用户信息
   useEffect(() => {
@@ -127,6 +130,28 @@ function App() {
                 </Button>
               ) : (
                 <div className="flex items-center gap-4">
+                  {/* 优化组件切换按钮 */}
+                  <Button
+                    onClick={() => setUseOptimizedComponents(!useOptimizedComponents)}
+                    variant={useOptimizedComponents ? "solid" : "outline"}
+                    size="sm"
+                    className="flex items-center gap-2"
+                    title={useOptimizedComponents ? "使用优化组件" : "使用原始组件"}
+                  >
+                    <span className="text-xs">⚡</span>
+                    {useOptimizedComponents ? '优化版' : '原版'}
+                  </Button>
+
+                  {/* 测试模式切换按钮 */}
+                  <Button
+                    onClick={() => setIsTestMode(!isTestMode)}
+                    variant={isTestMode ? "solid" : "outline"}
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    {isTestMode ? <TestTube className="w-4 h-4" /> : <Gamepad2 className="w-4 h-4" />}
+                    {isTestMode ? '测试模式' : '正常模式'}
+                  </Button>
 
                   {/* 用户信息 */}
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50">
@@ -186,6 +211,35 @@ function App() {
                 </Button>
               ) : (
                 <div className="space-y-3">
+                  {/* 优化组件切换按钮 */}
+                  <Button
+                    onClick={() => {
+                      setUseOptimizedComponents(!useOptimizedComponents);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    variant={useOptimizedComponents ? "solid" : "outline"}
+                    size="sm"
+                    className="w-full flex items-center gap-2"
+                    title={useOptimizedComponents ? "使用优化组件" : "使用原始组件"}
+                  >
+                    <span className="text-xs">⚡</span>
+                    {useOptimizedComponents ? '优化版' : '原版'}
+                  </Button>
+
+                  {/* 测试模式切换按钮 */}
+                  <Button
+                    onClick={() => {
+                      setIsTestMode(!isTestMode);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    variant={isTestMode ? "solid" : "outline"}
+                    size="sm"
+                    className="w-full flex items-center gap-2"
+                  >
+                    {isTestMode ? <TestTube className="w-4 h-4" /> : <Gamepad2 className="w-4 h-4" />}
+                    {isTestMode ? '测试模式' : '正常模式'}
+                  </Button>
+
                   {/* 用户信息 */}
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
                     <User className="w-4 h-4 text-muted-foreground" />
@@ -281,32 +335,36 @@ function App() {
         ) : (
           /* 已登录状态 - 主应用界面 */
           <div className="space-y-6">
-            {/* 流式输入测试区域 */}
+            {isTestMode ? (
+              /* 测试模式 - 显示测试组件 */
+              <RoleplayTestDemo />
+            ) : (
+              /* 正常模式 - 主应用界面 */
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* 左侧边栏 - 用户信息和世界状态 */}
+                <div className="lg:col-span-1 space-y-4">
+                  <UserProfile user={user} onLogout={handleLogout} />
+                  {currentSessionId && (
+                    <WorldStateDisplay
+                      sessionId={currentSessionId}
+                      isAuthenticated={isAuthenticated}
+                      onAuthFailure={handleAuthFailure}
+                    />
+                  )}
+                </div>
 
-            {/* 主应用界面 */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* 左侧边栏 - 用户信息和世界状态 */}
-              <div className="lg:col-span-1 space-y-4">
-                <UserProfile user={user} onLogout={handleLogout} />
-                {currentSessionId && (
-                  <WorldStateDisplay
-                    sessionId={currentSessionId}
-                    isAuthenticated={isAuthenticated}
-                    onAuthFailure={handleAuthFailure}
-                  />
-                )}
-              </div>
+                {/* 右侧主内容区 - 角色扮演聊天 */}
+                <div className="lg:col-span-3">
 
-              {/* 右侧主内容区 - 角色扮演聊天 */}
-              <div className="lg:col-span-3">
-                <RoleplayChat 
-                  isAuthenticated={isAuthenticated} 
-                  user={user}
-                  onAuthFailure={handleAuthFailure}
-                  onSessionIdChange={handleSessionIdChange}
-                />
+                    <RoleplayChat 
+                      isAuthenticated={isAuthenticated} 
+                      user={user}
+                      onAuthFailure={handleAuthFailure}
+                      onSessionIdChange={handleSessionIdChange}
+                    />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>
@@ -323,3 +381,4 @@ function App() {
 }
 
 export default App;
+

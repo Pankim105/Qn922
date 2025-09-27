@@ -11,6 +11,7 @@ import com.qncontest.service.RoleplayMemoryService;
 import com.qncontest.service.RoleplayWorldService;
 import com.qncontest.service.StreamAiService;
 import com.qncontest.service.UserDetailsServiceImpl;
+import com.qncontest.service.VoiceInstructionParser;
 import com.qncontest.service.WorldTemplateService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -57,6 +58,9 @@ public class RoleplayController {
     
     @Autowired
     private ChatSessionService chatSessionService;
+
+    @Autowired
+    private VoiceInstructionParser voiceInstructionParser;
 
     
     /**
@@ -148,6 +152,27 @@ public class RoleplayController {
             
             // logger.info("收到角色扮演流式聊天请求: user={}, session={}, world={}, message长度={}",
             //            currentUser.getUsername(), request.getSessionId(), request.getWorldType(), request.getMessage().length());
+
+            // 检查是否为语音输入，如果是则进行语音指令解析
+            if ("voice".equals(request.getInputType())) {
+                logger.info("检测到语音输入，进行指令解析: sessionId={}, worldType={}", 
+                           request.getSessionId(), request.getWorldType());
+                
+                String originalMessage = request.getMessage();
+                String parsedMessage = voiceInstructionParser.parseVoiceInstruction(
+                    originalMessage, 
+                    request.getWorldType(), 
+                    request.getSessionId()
+                );
+                
+                // 验证解析结果
+                if (voiceInstructionParser.isValidVoiceInstruction(parsedMessage)) {
+                    request.setMessage(parsedMessage);
+                    logger.info("语音指令解析成功: 原始='{}', 解析后='{}'", originalMessage, parsedMessage);
+                } else {
+                    logger.warn("语音指令解析失败，使用原始文本: '{}'", originalMessage);
+                }
+            }
 
             // 检查是否启用DM评估模式
             boolean isDMAwareMode = request.getWorldType() != null && !"general".equals(request.getWorldType());
@@ -300,6 +325,85 @@ public class RoleplayController {
         }
     }
     
+    /**
+     * 初始化角色数据
+     */
+    @PostMapping("/sessions/{sessionId}/character")
+    public ResponseEntity<ChatResponse> initializeCharacter(
+            @PathVariable String sessionId,
+            @RequestBody CharacterInitializationRequest request) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+            
+            // 验证技能数量限制
+            if (request.getSkills() == null || request.getSkills().isEmpty()) {
+                return ResponseEntity.status(400)
+                    .body(ChatResponse.error("请至少选择一个技能"));
+            }
+            
+            if (request.getSkills().size() > 2) {
+                return ResponseEntity.status(400)
+                    .body(ChatResponse.error("最多只能选择两个技能"));
+            }
+            
+            // 初始化角色数据到会话中
+            roleplayWorldService.initializeCharacter(
+                sessionId, 
+                request.getCharacterName(),
+                request.getProfession(),
+                request.getSkills(),
+                request.getBackground()
+            );
+            
+            return ResponseEntity.ok(ChatResponse.success("角色初始化成功"));
+            
+        } catch (Exception e) {
+            logger.error("角色初始化失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("角色初始化失败"));
+        }
+    }
+
+    /**
+     * 修复角色属性（包括生命值、魔力值和所有属性）
+     */
+    @PostMapping("/sessions/{sessionId}/fix-character-attributes")
+    public ResponseEntity<ChatResponse> fixCharacterAttributes(@PathVariable String sessionId) {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(401)
+                    .body(ChatResponse.error("用户未认证"));
+            }
+            
+            // 验证会话所有权
+            ChatSession session = chatSessionService.getSessionById(sessionId);
+            if (session == null) {
+                return ResponseEntity.status(404)
+                    .body(ChatResponse.error("会话不存在"));
+            }
+            
+            if (!session.getUser().getId().equals(currentUser.getId())) {
+                return ResponseEntity.status(403)
+                    .body(ChatResponse.error("无权访问此会话"));
+            }
+            
+            // 修复角色属性
+            roleplayWorldService.fixCharacterAttributes(sessionId);
+            
+            return ResponseEntity.ok(ChatResponse.success("角色属性修复完成"));
+            
+        } catch (Exception e) {
+            logger.error("修复角色属性失败: sessionId={}", sessionId, e);
+            return ResponseEntity.status(500)
+                .body(ChatResponse.error("修复角色属性失败"));
+        }
+    }
+
     /**
      * 获取会话状态（包括世界状态和技能状态）
      */
@@ -460,30 +564,6 @@ public class RoleplayController {
         }
     }
 
-    /**
-     * 处理AI回复中的记忆标记
-     */
-    @PostMapping("/sessions/{sessionId}/memories/process")
-    public ResponseEntity<ChatResponse> processMemoryMarkers(
-            @PathVariable String sessionId,
-            @RequestBody ProcessMemoryRequest request) {
-        try {
-            User currentUser = getCurrentUser();
-            if (currentUser == null) {
-                return ResponseEntity.status(401)
-                    .body(ChatResponse.error("用户未认证"));
-            }
-
-            roleplayMemoryService.updateMemoriesFromAI(sessionId, request.getAiResponse(), request.getUserAction());
-
-            return ResponseEntity.ok(ChatResponse.success("记忆处理完成"));
-
-        } catch (Exception e) {
-            logger.error("处理记忆标记失败: sessionId={}", sessionId, e);
-            return ResponseEntity.status(500)
-                .body(ChatResponse.error("处理记忆标记失败"));
-        }
-    }
 
     /**
      * 健康检查
@@ -637,27 +717,6 @@ public class RoleplayController {
         }
     }
 
-    public static class ProcessMemoryRequest {
-        private String aiResponse;
-        private String userAction;
-
-        // Getters and Setters
-        public String getAiResponse() {
-            return aiResponse;
-        }
-
-        public void setAiResponse(String aiResponse) {
-            this.aiResponse = aiResponse;
-        }
-
-        public String getUserAction() {
-            return userAction;
-        }
-
-        public void setUserAction(String userAction) {
-            this.userAction = userAction;
-        }
-    }
 
     public static class RecordEventRequest {
         private String event;
@@ -701,6 +760,118 @@ public class RoleplayController {
         public void setRelationship(String relationship) {
             this.relationship = relationship;
         }
+    }
+
+    public static class CharacterInitializationRequest {
+        private String characterName;
+        private String profession;
+        private java.util.List<String> skills;
+        private String background;
+
+        // Getters and Setters
+        public String getCharacterName() {
+            return characterName;
+        }
+
+        public void setCharacterName(String characterName) {
+            this.characterName = characterName;
+        }
+
+        public String getProfession() {
+            return profession;
+        }
+
+        public void setProfession(String profession) {
+            this.profession = profession;
+        }
+
+        public java.util.List<String> getSkills() {
+            return skills;
+        }
+
+        public void setSkills(java.util.List<String> skills) {
+            this.skills = skills;
+        }
+
+        public String getBackground() {
+            return background;
+        }
+
+        public void setBackground(String background) {
+            this.background = background;
+        }
+    }
+
+    /**
+     * 测试接口：模拟大模型流式输出
+     */
+    @GetMapping(value = "/test/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter testStreamResponse() {
+        SseEmitter emitter = new SseEmitter(60000L); // 60秒超时
+        
+        // 模拟的大模型响应内容
+        String fullResponse = """
+            [DIALOGUE]
+            场景描述：你站在一座古老警局的台阶前，锈迹斑斑的铁门在微风中轻轻摇晃。空气中弥漫着潮湿的尘埃与旧纸张的气息，远处传来钟楼的滴答声，仿佛在倒数着某个即将揭晓的秘密; 角色动作：你的手不自觉地按在腰间的配枪上，指尖触到冰冷的金属——这是你作为警探的第一天; NPC对话："Inspector Panzijian..." 一个沙哑的声音从阴影中传来，"欢迎来到'雾都案卷馆'。这里每一份档案都藏着一条命案的影子，而今晚，有一具尸体正在等你去发现。"; 环境变化：突然，警局大厅的灯闪烁了一下，一束惨白的光线照在墙上的老式挂钟上——时间停在了凌晨3:17; 声音效果：你听见走廊深处传来一声重物坠地的闷响，紧接着，是锁链拖地的声音……; NPC低语："有人在下面。"那声音低语道，"但没人能活着上来。"
+            [/DIALOGUE]
+
+            [WORLD]
+            📍 当前位置: 雾都警局·档案馆入口; 🌅 时间: 凌晨3:17，夜色浓稠如墨; 🌤️ 天气: 雾气弥漫，街灯昏黄，雨丝悄然飘落; 🔦 环境: 木质楼梯吱呀作响，墙上挂着褪色的通缉令与泛黄的照片；角落里堆满积灰的案卷箱，最深处隐约可见一道铁门半开；👥 NPC: 无名低语者（神秘人，身份不明）：仅以声音出现，语气似哀求又似警告 ； 警局守夜人老陈（已失踪）：最后被目击于地下室；⚡ 特殊事件: 档案馆中央的铜铃无故自响三声，同时所有灯光短暂熄灭，重新亮起时，墙上一幅照片悄然更换——上面是你自己的脸，却戴着镣铐
+            [/WORLD]
+
+            [QUESTS]
+            1. 探查雾都警局档案馆：调查警局内异常现象，寻找失踪守夜人老陈的下落，进度0/1（奖励：经验值100、警徽x1、线索卡「血字日记」）; 2. 解读铜铃异象：查明铜铃为何在无人触碰时自行响起，进度0/1（奖励：经验值80、灵觉感知+1）
+            [/QUESTS]
+
+            [CHOICES]
+            1. 进入档案馆深处 - 沿着吱呀作响的楼梯向下，直面黑暗中的未知； 2. 检查墙上的新照片 - 仔细观察那张"戴镣铐的你"的照片，寻找隐藏线索； 3. 搜寻守夜人遗留物品 - 在大厅角落翻找可能属于老陈的遗物； 4. 使用法医工具检测空气 - 用随身携带的便携式化学试纸测试空气中是否有毒素或血迹残留； 5. 自由行动 - 描述你想要进行的其他行动
+            [/CHOICES]
+
+            §{"ruleCompliance": 0.95, "contextConsistency": 0.92, "convergenceProgress": 0.65, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "玩家启动角色扮演行为符合侦探世界设定，且推动剧情进入核心谜题阶段", "suggestedActions": ["优先检查照片中的细节", "注意铜铃的规律性响动"], "convergenceHints": ["照片是关键线索，暗示身份错位", "铜铃三响，对应三个死者"], "questUpdates": {"created": [{"questId": "quest_001", "title": "探查雾都警局档案馆", "description": "调查警局内异常现象，寻找失踪守夜人老陈的下落", "rewards": {"exp": 100, "items": ["警徽x1", "线索卡「血字日记」"]}}, {"questId": "quest_002", "title": "解读铜铃异象", "description": "查明铜铃为何在无人触碰时自行响起", "rewards": {"exp": 80, "attributes": {"perception": 1}}}], "completed": [], "progress": [], "expired": []}, "worldStateUpdates": {"currentLocation": "雾都警局·档案馆入口", "environment": "夜雾笼罩，灯光忽明忽暗，空气中弥漫着铁锈与旧纸张的气味", "npcs": [{"name": "无名低语者", "status": "声音来自阴影，未现身"}, {"name": "老陈", "status": "失踪，最后一次目击于地下室"}]}, "diceRolls": [{"diceType": 20, "modifier": 3, "context": "观察力检定", "result": 16, "isSuccessful": true}], "learningChallenges": [{"type": "LOGIC", "difficulty": "普通", "question": "如果三个人都说自己没杀人，但其中两人说谎，谁是凶手？", "answer": "说真话的那个人不是凶手", "isCorrect": false}], "stateUpdates": [{"type": "LOCATION", "value": "进入雾都警局档案馆，气氛压抑，灯光闪烁"}, {"type": "INVENTORY", "value": "获得便携式化学试纸x1，智力+2"}], "memoryUpdates": [{"type": "EVENT", "content": "主角首次进入雾都警局档案馆，遭遇神秘低语者", "importance": 0.85}, {"type": "CHARACTER", "content": "与无名低语者建立初步联系，对方似乎知晓主角过去", "importance": 0.75}], "arcUpdates": {"currentArcName": "血铃迷局", "currentArcStartRound": 1, "totalRounds": 45}, "convergenceStatusUpdates": {"progress": 0.15, "nearestScenarioId": "story_convergence_3", "nearestScenarioTitle": "三响之墓", "distanceToNearest": 0.85, "scenarioProgress": {"story_convergence_1": 0.0, "story_convergence_2": 0.1, "story_convergence_3": 0.15, "main_convergence": 0.05}, "activeHints": ["照片中的镣铐有特殊标记", "铜铃三响，对应三具尸体"]}}§
+            """;
+
+        // 异步发送流式数据
+        new Thread(() -> {
+            try {
+                // 将完整响应分成小块进行流式发送
+                String[] chunks = fullResponse.split("(?<=\\n)");
+                
+                for (int i = 0; i < chunks.length; i++) {
+                    String chunk = chunks[i];
+                    
+                    // 模拟网络延迟
+                    Thread.sleep(50 + (int)(Math.random() * 100));
+                    
+                    // 发送数据块
+                    emitter.send(SseEmitter.event()
+                        .name("message")
+                        .data(chunk));
+                    
+                    // 每发送几个块就发送一次心跳
+                    if (i % 10 == 0) {
+                        emitter.send(SseEmitter.event()
+                            .name("heartbeat")
+                            .data("ping"));
+                    }
+                }
+                
+                // 发送完成信号
+                emitter.send(SseEmitter.event()
+                    .name("complete")
+                    .data(""));
+                
+                // 完成流
+                emitter.complete();
+                
+                logger.info("测试流式响应发送完成");
+                
+            } catch (Exception e) {
+                logger.error("测试流式响应发送失败", e);
+                emitter.completeWithError(e);
+            }
+        }).start();
+        
+        return emitter;
     }
 }
 

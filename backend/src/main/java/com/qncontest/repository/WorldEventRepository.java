@@ -64,6 +64,11 @@ public interface WorldEventRepository extends JpaRepository<WorldEvent, Long> {
      * 获取指定会话和事件类型的事件（按时间降序）
      */
     List<WorldEvent> findBySessionIdAndEventTypeOrderByTimestampDesc(String sessionId, WorldEvent.EventType eventType);
+    
+    /**
+     * 获取指定会话的所有事件（按时间降序）
+     */
+    List<WorldEvent> findBySessionIdOrderByTimestampDesc(String sessionId);
 }
 
 

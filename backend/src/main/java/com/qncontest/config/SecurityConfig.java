@@ -75,6 +75,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/test/public").permitAll()
+                .requestMatchers("/roleplay/test/**").permitAll()
                 .requestMatchers("/chat/health").permitAll()
                 .requestMatchers("/chat/verify-token").authenticated()
                 .requestMatchers("/chat/**").authenticated()

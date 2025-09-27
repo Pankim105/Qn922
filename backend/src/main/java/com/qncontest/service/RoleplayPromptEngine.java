@@ -1,7 +1,6 @@
 package com.qncontest.service;
 
 import com.qncontest.service.interfaces.PromptBuilderInterface;
-import com.qncontest.service.interfaces.MemoryManagerInterface;
 import com.qncontest.service.prompt.PromptBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,8 +16,6 @@ public class RoleplayPromptEngine {
     @Autowired
     private PromptBuilderInterface promptBuilder;
     
-    @Autowired
-    private MemoryManagerInterface memoryManager;
     
     /**
      * 角色扮演上下文 - 委托给PromptBuilder
@@ -60,20 +57,9 @@ public class RoleplayPromptEngine {
             你是%s。请用角色扮演的方式回应用户，保持世界观的一致性，
             提供生动的描述和有意义的互动。如果需要随机判定，使用骰子指令。
 
-            ## 记忆管理
-            如果你的回复中包含重要信息，请在回复末尾使用记忆标记：
-            - 角色关系：[MEMORY:CHARACTER:角色名:关系变化]
-            - 重要事件：[MEMORY:EVENT:事件描述]
-            - 技能学习：[MEMORY:SKILL:技能名:学习情况]
 
             用户消息：%s
             """, roleDescription, message);
     }
     
-    /**
-     * 处理AI回复中的记忆标记
-     */
-    public void processMemoryMarkers(String sessionId, String aiResponse, String userAction) {
-        memoryManager.processMemoryMarkers(sessionId, aiResponse, userAction);
-    }
 }

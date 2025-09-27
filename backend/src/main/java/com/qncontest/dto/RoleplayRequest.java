@@ -25,10 +25,10 @@ public class RoleplayRequest {
     private List<ChatHistoryMessage> history;
     private String systemPrompt;
     
-    // 技能相关
-    private DiceRollRequest diceRoll;
-    private QuestActionRequest questAction;
-    private LearningChallengeRequest learningChallenge;
+    // 语音输入相关字段
+    private String inputType; // 'text' 或 'voice'
+    private String originalVoiceData; // 原始语音数据（可选）
+    
     
     public static class ChatHistoryMessage {
         private String role;
@@ -110,103 +110,7 @@ public class RoleplayRequest {
         }
     }
     
-    public static class QuestActionRequest {
-        private String action;
-        private String questId;
-        private String questTitle;
-        private String questDescription;
-        private String questStatus;
-        
-        // Getters and Setters
-        public String getAction() {
-            return action;
-        }
-        
-        public void setAction(String action) {
-            this.action = action;
-        }
-        
-        public String getQuestId() {
-            return questId;
-        }
-        
-        public void setQuestId(String questId) {
-            this.questId = questId;
-        }
-        
-        public String getQuestTitle() {
-            return questTitle;
-        }
-        
-        public void setQuestTitle(String questTitle) {
-            this.questTitle = questTitle;
-        }
-        
-        public String getQuestDescription() {
-            return questDescription;
-        }
-        
-        public void setQuestDescription(String questDescription) {
-            this.questDescription = questDescription;
-        }
-        
-        public String getQuestStatus() {
-            return questStatus;
-        }
-        
-        public void setQuestStatus(String questStatus) {
-            this.questStatus = questStatus;
-        }
-    }
     
-    public static class LearningChallengeRequest {
-        private String subject;
-        private Integer level;
-        private String question;
-        private String userAnswer;
-        private String challengeType;
-        
-        // Getters and Setters
-        public String getSubject() {
-            return subject;
-        }
-        
-        public void setSubject(String subject) {
-            this.subject = subject;
-        }
-        
-        public Integer getLevel() {
-            return level;
-        }
-        
-        public void setLevel(Integer level) {
-            this.level = level;
-        }
-        
-        public String getQuestion() {
-            return question;
-        }
-        
-        public void setQuestion(String question) {
-            this.question = question;
-        }
-        
-        public String getUserAnswer() {
-            return userAnswer;
-        }
-        
-        public void setUserAnswer(String userAnswer) {
-            this.userAnswer = userAnswer;
-        }
-        
-        public String getChallengeType() {
-            return challengeType;
-        }
-        
-        public void setChallengeType(String challengeType) {
-            this.challengeType = challengeType;
-        }
-    }
     
     // Main class Getters and Setters
     public String getMessage() {
@@ -281,29 +185,22 @@ public class RoleplayRequest {
         this.systemPrompt = systemPrompt;
     }
     
-    public DiceRollRequest getDiceRoll() {
-        return diceRoll;
+    public String getInputType() {
+        return inputType;
     }
     
-    public void setDiceRoll(DiceRollRequest diceRoll) {
-        this.diceRoll = diceRoll;
+    public void setInputType(String inputType) {
+        this.inputType = inputType;
     }
     
-    public QuestActionRequest getQuestAction() {
-        return questAction;
+    public String getOriginalVoiceData() {
+        return originalVoiceData;
     }
     
-    public void setQuestAction(QuestActionRequest questAction) {
-        this.questAction = questAction;
+    public void setOriginalVoiceData(String originalVoiceData) {
+        this.originalVoiceData = originalVoiceData;
     }
     
-    public LearningChallengeRequest getLearningChallenge() {
-        return learningChallenge;
-    }
-    
-    public void setLearningChallenge(LearningChallengeRequest learningChallenge) {
-        this.learningChallenge = learningChallenge;
-    }
 }
 
 

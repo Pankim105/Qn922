@@ -69,6 +69,8 @@ docs/
 - [收敛机制](features/convergence-system.md) - 智能故事收敛引导
 - [世界模板](features/world-templates.md) - 5种世界类型
 - [AI集成](features/ai-integration.md) - LangChain4j集成
+- [语音交互系统](features/voice-system.md) - 语音识别和交互
+- [UI组件库](features/ui-components.md) - 现代化UI组件
 
 ### 📚 API文档
 - [API总览](api/README.md) - 所有API接口概览
@@ -126,5 +128,5 @@ docs/
 ---
 
 **最后更新**: 2025-01-27  
-**文档版本**: v2.1.0  
+**文档版本**: v2.2.0  
 **维护者**: QN Contest Team

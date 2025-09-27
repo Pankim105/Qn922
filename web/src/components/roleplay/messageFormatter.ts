@@ -98,8 +98,8 @@ export const formatQuestTextContent = (content: string): string => {
   }
   
   // 处理分号分隔的任务列表格式（根据PromptBuilder要求）
-  if (content.includes(';')) {
-    const tasks = content.split(';').map(task => task.trim()).filter(task => task);
+  if (content.includes(';') || content.includes('；')) {
+    const tasks = content.split(/[;；]/).map(task => task.trim()).filter(task => task);
     
     if (tasks.length > 0) {
       let sections = `
@@ -113,7 +113,7 @@ export const formatQuestTextContent = (content: string): string => {
       
       tasks.forEach((task) => {
         // 首先尝试匹配包含冒号的格式：数字. 标题：描述，进度（奖励：...）
-        const colonMatch = task.match(/^(\d+)\.\s*(.+?)：(.+?)(?:\s*（奖励：(.+)）)?$/);
+        const colonMatch = task.match(/^(\d+)\.\s*(.+?)[：:](.+?)(?:\s*（奖励[：:](.+)）)?$/);
         if (colonMatch) {
           const number = colonMatch[1];
           const title = colonMatch[2].trim();
@@ -130,7 +130,7 @@ export const formatQuestTextContent = (content: string): string => {
           sections += formatSingleTask(taskText, 'active');
         } else {
           // 匹配格式：数字. 标题：描述，进度（奖励：...）
-          const match = task.match(/^(\d+)\.\s*(.+?)(?:\s*-\s*(.+?))?(?:\s*（奖励：(.+)）)?$/);
+          const match = task.match(/^(\d+)\.\s*(.+?)(?:\s*-\s*(.+?))?(?:\s*（奖励[：:](.+)）)?$/);
           if (match) {
             const number = match[1];
             const title = match[2].trim();
@@ -389,145 +389,152 @@ export const formatQuestContent = (questData: any): string => {
   return content || '暂无任务信息';
 };
 
-// 格式化状态内容 - 处理分号分隔的键值对格式
+// 格式化状态内容 - 根据已知键分割内容
 export const formatStatusContent = (content: string): string => {
-  // 处理分号分隔的键值对格式
-  let formattedContent = content;
-
-  // 首先尝试按分号分割键值对
-  if (content.includes(';')) {
-    const keyValuePairs = content.split(';').map(pair => pair.trim()).filter(pair => pair);
-    
-    if (keyValuePairs.length > 0) {
-      formattedContent = keyValuePairs.map((pair, index) => {
-        const isLast = index === keyValuePairs.length - 1;
-        
-        // 匹配 **键**: 值 格式
-        const match = pair.match(/^\*\*([^*]+)\*\*:\s*(.+)$/);
-        if (match) {
-          const key = match[1];
-          const value = match[2];
-          
-          // 添加表情符号支持
-          const keyWithEmoji = key.replace(/^(📍|🌅|🌤️|🔮|👥|⚡|📚)?\s*/, '');
-          const emoji = key.match(/^(📍|🌅|🌤️|🔮|👥|⚡|📚)/)?.[0] || '';
-
-          return `<div class="flex justify-between items-start py-2 ${isLast ? '' : 'border-b'} border-gray-200/30 dark:border-gray-600/30 ${isLast ? '' : 'last:border-b-0'}">
-            <span class="font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">
-              ${emoji ? `<span class="mr-1">${emoji}</span>` : ''}${keyWithEmoji}:
-            </span>
-            <span class="text-gray-600 dark:text-gray-400 text-right ml-2">${value}</span>
-          </div>`;
-        }
-        
-        // 匹配表情符号开头的格式：📍 键: 值
-        const emojiMatch = pair.match(/^(📍|🌅|🌤️|🔮|👥|⚡|📚)\s*([^:]+):\s*(.+)$/);
-        if (emojiMatch) {
-          const emoji = emojiMatch[1];
-          const key = emojiMatch[2].trim();
-          const value = emojiMatch[3].trim();
-
-          return `<div class="flex justify-between items-start py-2 ${isLast ? '' : 'border-b'} border-gray-200/30 dark:border-gray-600/30 ${isLast ? '' : 'last:border-b-0'}">
-            <span class="font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">
-              <span class="mr-1">${emoji}</span>${key}:
-            </span>
-            <span class="text-gray-600 dark:text-gray-400 text-right ml-2">${value}</span>
-          </div>`;
-        }
-        
-        // 如果没有匹配到标准格式，尝试其他格式
-        // 格式2: 键：值（中文冒号）
-        const chineseMatch = pair.match(/^([^：]+)：(.+)$/);
-        if (chineseMatch) {
-          const key = chineseMatch[1];
-          const value = chineseMatch[2];
-
-          return `<div class="flex justify-between items-start py-2 ${isLast ? '' : 'border-b'} border-gray-200/30 dark:border-gray-600/30 ${isLast ? '' : 'last:border-b-0'}">
-            <span class="font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">${key}：</span>
-            <span class="text-gray-600 dark:text-gray-400 text-right ml-2">${value}</span>
-          </div>`;
-        }
-        
-        // 如果都不匹配，作为普通文本处理
-        return `<div class="flex items-start gap-2 py-1">
-          <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
-          <span class="text-gray-700 dark:text-gray-300">${pair}</span>
-        </div>`;
-      }).join('');
-    }
-  } else {
-    // 如果没有分号，尝试按行分割
-    const lines = content.split('\n').filter(line => line.trim());
-    
-    formattedContent = lines.map((line, index) => {
-      const isLast = index === lines.length - 1;
-      
-      // 匹配 **键**: 值 格式
-      const match = line.match(/^\*\*([^*]+)\*\*:\s*(.+)$/);
-      if (match) {
-        const key = match[1];
-        const value = match[2];
-        
-        // 添加表情符号支持
-        const keyWithEmoji = key.replace(/^(📍|🌅|🌤️|🔮|👥|⚡|📚)?\s*/, '');
-        const emoji = key.match(/^(📍|🌅|🌤️|🔮|👥|⚡|📚)/)?.[0] || '';
-
-        return `<div class="flex justify-between items-start py-2 ${isLast ? '' : 'border-b'} border-gray-200/30 dark:border-gray-600/30 ${isLast ? '' : 'last:border-b-0'}">
-          <span class="font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">
-            ${emoji ? `<span class="mr-1">${emoji}</span>` : ''}${keyWithEmoji}:
-          </span>
-          <span class="text-gray-600 dark:text-gray-400 text-right ml-2">${value}</span>
-        </div>`;
-      }
-      
-      // 格式2: 键：值（中文冒号）
-      const chineseMatch = line.match(/^([^：]+)：(.+)$/);
-      if (chineseMatch) {
-        const key = chineseMatch[1];
-        const value = chineseMatch[2];
-
-        return `<div class="flex justify-between items-start py-2 ${isLast ? '' : 'border-b'} border-gray-200/30 dark:border-gray-600/30 ${isLast ? '' : 'last:border-b-0'}">
-          <span class="font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">${key}：</span>
-          <span class="text-gray-600 dark:text-gray-400 text-right ml-2">${value}</span>
-        </div>`;
-      }
-      
-      // 如果都不匹配，作为普通文本处理
-      return `<div class="flex items-start gap-2 py-1">
-        <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
-        <span class="text-gray-700 dark:text-gray-300">${line}</span>
-      </div>`;
-    }).join('');
+  if (!content || !content.trim()) {
+    return '';
   }
+
+  // 定义已知的键和对应的表情符号
+  const knownKeys = [
+    { key: '当前位置', emoji: '📍' },
+    { key: '时间', emoji: '🌅' },
+    { key: '天气', emoji: '🌤️' },
+    { key: '环境', emoji: '🔮' },
+    { key: 'NPC', emoji: '👥' },
+    { key: '特殊事件', emoji: '⚡' }
+  ];
+
+  // 定义所有可能的表情符号（包括不在已知键中的）
+  const allEmojis = ['📍', '🌅', '🌤️', '🔮', '🔦', '👥', '⚡', '📚'];
+
+  // 构建正则表达式来匹配任何表情符号+键名+冒号的模式
+  const emojiPattern = allEmojis.map(emoji => emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const keyPattern = knownKeys.map(k => k.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const regex = new RegExp(`((${emojiPattern})\\s*(${keyPattern})[：:])`, 'g');
+
+  // 按表情符号+键名+冒号分割内容
+  const parts = content.split(regex).filter(part => part && part.trim());
   
-  // 处理列表项（以 - 开头）
-  formattedContent = formattedContent.replace(/^- (.+)$/gm, (_, item) => {
-    // 检查是否是键值对格式（如 "等级：1"）
-    if (item.includes('：')) {
-      const [key, value] = item.split('：', 2);
-      return `<div class="flex justify-between items-start py-2 border-b border-gray-200/30 dark:border-gray-600/30 last:border-b-0">
-        <span class="font-bold text-gray-800 dark:text-gray-200 flex-shrink-0">${key}：</span>
-        <span class="text-gray-600 dark:text-gray-400 text-right ml-2">${value}</span>
+  if (parts.length === 0) {
+    return '';
+  }
+
+  let formattedSections = [];
+  let currentKey = '';
+  let currentValue = '';
+  let currentEmoji = '';
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i].trim();
+    
+    // 检查是否是表情符号+键名+冒号的组合
+    const keyMatch = part.match(/^(📍|🌅|🌤️|🔮|🔦|👥|⚡|📚)\s*(当前位置|时间|天气|环境|NPC|特殊事件)[：:]$/);
+    
+    if (keyMatch) {
+      // 如果之前有键值对，先处理它
+      if (currentKey && currentValue) {
+        formattedSections.push(formatKeyValuePair(currentKey, currentValue, currentEmoji));
+      }
+      
+      // 设置新的键和表情符号
+      currentEmoji = keyMatch[1];
+      currentKey = keyMatch[2];
+      currentValue = '';
+    } else {
+      // 这是值
+      currentValue = part;
+    }
+  }
+
+  // 处理最后一个键值对
+  if (currentKey && currentValue) {
+    formattedSections.push(formatKeyValuePair(currentKey, currentValue, currentEmoji));
+  }
+
+  return `<div class="space-y-0 bg-gray-50/50 dark:bg-gray-800/30 rounded-lg p-2 border border-gray-200/50 dark:border-gray-700/50">${formattedSections.join('')}</div>`;
+};
+
+// 格式化单个键值对
+const formatKeyValuePair = (key: string, value: string, emoji: string): string => {
+  // 检查值是否包含分号（英文或中文），如果包含则按分号分割并格式化
+  if (value.includes(';') || value.includes('；')) {
+    // 同时处理英文分号和中文分号
+    const valueItems = value.split(/[;；]/).map(item => item.trim()).filter(item => item);
+    
+    const formattedValueItems = valueItems.map(item => 
+      `<div class="bg-white/60 dark:bg-gray-700/40 rounded p-2 border border-gray-200/50 dark:border-gray-600/30">
+        <div class="flex items-start gap-2">
+          <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+          <div class="flex-1">
+            <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
+              ${item}
+            </div>
+          </div>
+        </div>
+      </div>`
+    ).join('');
+
+    return `<div class="py-2 border-b border-gray-200/30 dark:border-gray-600/30 last:border-b-0">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-lg">${emoji}</span>
+        <span class="font-bold text-gray-800 dark:text-gray-200">${key}:</span>
+      </div>
+      <div class="ml-6 space-y-1">
+        ${formattedValueItems}
+      </div>
+    </div>`;
+  }
+  // 检查值是否包含竖线，如果包含则按竖线分割并格式化（特别用于NPC）
+  else if (value.includes('|')) {
+    const valueItems = value.split('|').map(item => item.trim()).filter(item => item);
+    const formattedValueItems = valueItems.map(item => 
+      `<div class="bg-purple-50/40 dark:bg-purple-900/20 rounded p-2 border border-purple-200/50 dark:border-purple-600/30">
+        <div class="flex items-start gap-2">
+          <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0"></div>
+          <div class="flex-1">
+            <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
+              ${item}
+            </div>
+          </div>
+        </div>
+      </div>`
+    ).join('');
+
+    return `<div class="py-2 border-b border-gray-200/30 dark:border-gray-600/30 last:border-b-0">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-lg">${emoji}</span>
+        <span class="font-bold text-gray-800 dark:text-gray-200">${key}:</span>
+      </div>
+      <div class="ml-6 space-y-1">
+        ${formattedValueItems}
+      </div>
+    </div>`;
+  }
+  else {
+    // 普通单行值 - 对于长内容使用垂直布局
+    const isLongContent = value.length > 50 || value.includes('；') || value.includes('——') || value.includes('，') && value.length > 30;
+    
+    if (isLongContent) {
+      return `<div class="py-2 border-b border-gray-200/30 dark:border-gray-600/30 last:border-b-0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-lg">${emoji}</span>
+          <span class="font-bold text-gray-800 dark:text-gray-200">${key}:</span>
+        </div>
+        <div class="ml-6">
+          <span class="text-gray-600 dark:text-gray-400 leading-relaxed">${value}</span>
+        </div>
       </div>`;
     } else {
-      // 普通列表项
-      return `<div class="flex items-start gap-2 py-1">
-        <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
-        <span class="text-gray-700 dark:text-gray-300">${item}</span>
+      return `<div class="flex justify-between items-start py-2 border-b border-gray-200/30 dark:border-gray-600/30 last:border-b-0">
+        <span class="font-bold text-gray-800 dark:text-gray-200 flex-shrink-0 flex items-center gap-2">
+          <span class="text-lg">${emoji}</span>
+          <span>${key}:</span>
+        </span>
+        <span class="text-gray-600 dark:text-gray-400 text-right ml-4 flex-1 leading-relaxed">${value}</span>
       </div>`;
     }
-  });
-  
-  // 处理粗体文本（**text**）- 但排除已处理的键值对
-  formattedContent = formattedContent.replace(/\*\*([^*]+)\*\*(?!:)/g, '<span class="font-bold text-gray-800 dark:text-gray-200">$1</span>');
-  
-  // 处理行内代码（`code`）
-  formattedContent = formattedContent.replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">$1</code>');
-  
-  // 处理特殊格式的括号内容（如 "（带暗格）"）
-  formattedContent = formattedContent.replace(/（([^）]+)）/g, '<span class="text-gray-500 dark:text-gray-400 text-xs">（$1）</span>');
-  
-  return `<div class="space-y-0">${formattedContent}</div>`;
+  }
 };
 
 // 格式化选择内容 - 处理分号分隔的选择项格式
@@ -536,13 +543,13 @@ export const formatChoicesContent = (content: string): string => {
   let formattedContent = content;
 
   // 首先尝试按分号分割选择项
-  if (content.includes(';')) {
-    const choiceItems = content.split(';').map(item => item.trim()).filter(item => item);
+  if (content.includes(';') || content.includes('；')) {
+    const choiceItems = content.split(/[;；]/).map(item => item.trim()).filter(item => item);
     
     if (choiceItems.length > 0) {
       formattedContent = choiceItems.map((item, _index) => {
-        // 匹配 数字. **标题** - 描述 格式
-        const match = item.match(/^(\d+)\.\s*\*\*(.*?)\*\*\s*-\s*(.+)$/);
+        // 匹配 数字. **标题** - 描述 格式（支持表情符号）
+        const match = item.match(/^(?:[^\d]*)?(\d+)\.\s*\*\*(.*?)\*\*\s*[-：:]\s*(.+)$/);
         if (match) {
           const title = match[2];
           const description = match[3];
@@ -556,11 +563,41 @@ export const formatChoicesContent = (content: string): string => {
           </div>`;
         }
 
+        // 匹配 数字. 标题 - 描述 格式（没有**号，支持表情符号）
+        const noBoldMatch = item.match(/^(?:[^\d]*)?(\d+)\.\s*(.+?)\s*[-：:]\s*(.+)$/);
+        if (noBoldMatch) {
+          const title = noBoldMatch[2];
+          const description = noBoldMatch[3];
+
+          return `<div class="flex items-start gap-2 py-1">
+            <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 flex-shrink-0"></div>
+            <div class="flex-1">
+              <div class="font-bold text-gray-800 dark:text-gray-200">${title}</div>
+              <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">${description}</div>
+            </div>
+          </div>`;
+        }
+
         // 匹配 **标题** - 描述 格式（没有序号）
-        const noNumberMatch = item.match(/^\*\*(.*?)\*\*\s*-\s*(.+)$/);
+        const noNumberMatch = item.match(/^\*\*(.*?)\*\*\s*[-：:]\s*(.+)$/);
         if (noNumberMatch) {
           const title = noNumberMatch[1];
           const description = noNumberMatch[2];
+
+          return `<div class="flex items-start gap-2 py-1">
+            <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 flex-shrink-0"></div>
+            <div class="flex-1">
+              <div class="font-bold text-gray-800 dark:text-gray-200">${title}</div>
+              <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">${description}</div>
+            </div>
+          </div>`;
+        }
+
+        // 匹配 标题 - 描述 格式（没有序号和**号）
+        const simpleMatch = item.match(/^(.+?)\s*[-：:]\s*(.+)$/);
+        if (simpleMatch) {
+          const title = simpleMatch[1];
+          const description = simpleMatch[2];
 
           return `<div class="flex items-start gap-2 py-1">
             <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 flex-shrink-0"></div>
@@ -583,8 +620,8 @@ export const formatChoicesContent = (content: string): string => {
     const lines = content.split('\n').filter(line => line.trim());
     
     formattedContent = lines.map((line, _index) => {
-      // 匹配 数字. **标题** - 描述 格式
-      const match = line.match(/^(\d+)\.\s*\*\*(.*?)\*\*\s*-\s*(.+)$/);
+      // 匹配 数字. **标题** - 描述 格式（支持表情符号）
+      const match = line.match(/^(?:[^\d]*)?(\d+)\.\s*\*\*(.*?)\*\*\s*[-：:]\s*(.+)$/);
       if (match) {
         const title = match[2];
         const description = match[3];
@@ -598,11 +635,41 @@ export const formatChoicesContent = (content: string): string => {
         </div>`;
       }
 
+      // 匹配 数字. 标题 - 描述 格式（没有**号，支持表情符号）
+      const noBoldMatch = line.match(/^(?:[^\d]*)?(\d+)\.\s*(.+?)\s*[-：:]\s*(.+)$/);
+      if (noBoldMatch) {
+        const title = noBoldMatch[2];
+        const description = noBoldMatch[3];
+
+        return `<div class="flex items-start gap-2 py-1">
+          <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 flex-shrink-0"></div>
+          <div class="flex-1">
+            <div class="font-bold text-gray-800 dark:text-gray-200">${title}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">${description}</div>
+          </div>
+        </div>`;
+      }
+
       // 匹配 **标题** - 描述 格式（没有序号）
-      const noNumberMatch = line.match(/^\*\*(.*?)\*\*\s*-\s*(.+)$/);
+      const noNumberMatch = line.match(/^\*\*(.*?)\*\*\s*[-：:]\s*(.+)$/);
       if (noNumberMatch) {
         const title = noNumberMatch[1];
         const description = noNumberMatch[2];
+
+        return `<div class="flex items-start gap-2 py-1">
+          <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 flex-shrink-0"></div>
+          <div class="flex-1">
+            <div class="font-bold text-gray-800 dark:text-gray-200">${title}</div>
+            <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">${description}</div>
+          </div>
+        </div>`;
+      }
+
+      // 匹配 标题 - 描述 格式（没有序号和**号）
+      const simpleMatch = line.match(/^(.+?)\s*[-：:]\s*(.+)$/);
+      if (simpleMatch) {
+        const title = simpleMatch[1];
+        const description = simpleMatch[2];
 
         return `<div class="flex items-start gap-2 py-1">
           <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 flex-shrink-0"></div>
@@ -633,9 +700,9 @@ export const formatAssessmentTextContent = (content: string): string => {
   let formattedContent = content;
   
   // 处理常见的评估文本格式
-  if (content.includes('综合评分:') || content.includes('评估策略:')) {
+  if (content.includes('综合评分:') || content.includes('评估策略:') || content.includes('综合评分：') || content.includes('评估策略：')) {
     // 处理键值对格式
-    formattedContent = formattedContent.replace(/^(.+?):\s*(.+)$/gm, (_, key, value) => {
+    formattedContent = formattedContent.replace(/^(.+?)[：:]\s*(.+)$/gm, (_, key, value) => {
       return `<div class="flex justify-between items-center py-2 border-b border-gray-200/30 dark:border-gray-600/30 last:border-b-0">
         <span class="font-bold text-gray-800 dark:text-gray-200">${key}:</span>
         <span class="text-gray-600 dark:text-gray-400">${value}</span>
@@ -750,4 +817,176 @@ export const formatAssessmentContent = (assessmentData: any): string => {
                     (assessmentData.convergenceHints && assessmentData.convergenceHints.length > 0);
   
   return hasContent ? content : '';
+};
+// 格式化对话内容
+export const formatDialogueContent = (content: string): string => {
+  if (!content || !content.trim()) {
+    return '';
+  }
+
+  // 按分号分割不同类型的对话内容（支持中文和英文分号）
+  const sections = content.split(/[;；]/).map(section => section.trim()).filter(section => section);
+  
+  if (sections.length === 0) {
+    return '';
+  }
+
+  let formattedSections = sections.map(section => {
+    // 识别不同类型的对话内容
+    if (section.startsWith('场景描述：') || section.startsWith('场景描述')) {
+      const description = section.replace(/^场景描述[：:]?\s*/, '').trim();
+      return `
+        <div class="scene-description p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            场景描述
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(description)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('角色动作：') || section.startsWith('角色动作')) {
+      const action = section.replace(/^角色动作[：:]?\s*/, '').trim();
+      return `
+        <div class="character-action p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            角色动作
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(action)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('NPC对话：') || section.startsWith('NPC对话') || section.startsWith('NPC低语：') || section.startsWith('NPC低语')) {
+      const dialogue = section.replace(/^(NPC对话|NPC低语)[：:]?\s*/, '').trim();
+      return `
+        <div class="npc-dialogue p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            ${section.includes('低语') ? 'NPC低语' : 'NPC对话'}
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(dialogue)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('环境变化：') || section.startsWith('环境变化')) {
+      const change = section.replace(/^环境变化[：:]?\s*/, '').trim();
+      return `
+        <div class="environment-change p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            环境变化
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(change)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('声音效果：') || section.startsWith('声音效果')) {
+      const sound = section.replace(/^声音效果[：:]?\s*/, '').trim();
+      return `
+        <div class="sound-effect p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            声音效果
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(sound)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('角色内心：') || section.startsWith('角色内心') || section.startsWith('角色内心独白：') || section.startsWith('角色内心独白')) {
+      const monologue = section.replace(/^(角色内心|角色内心独白)[：:]?\s*/, '').trim();
+      return `
+        <div class="character-monologue p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            角色内心独白
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(monologue)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('NPC登场：') || section.startsWith('NPC登场')) {
+      const entrance = section.replace(/^NPC登场[：:]?\s*/, '').trim();
+      return `
+        <div class="npc-entrance p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            NPC登场
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(entrance)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('环境氛围：') || section.startsWith('环境氛围')) {
+      const atmosphere = section.replace(/^环境氛围[：:]?\s*/, '').trim();
+      return `
+        <div class="environment-atmosphere p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            环境氛围
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(atmosphere)}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (section.startsWith('NPC低语：') || section.startsWith('NPC低语')) {
+      const whisper = section.replace(/^NPC低语[：:]?\s*/, '').trim();
+      return `
+        <div class="npc-whisper p-4 rounded-lg mb-3 shadow-advanced dark:shadow-advanced-dark">
+          <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
+            NPC低语
+          </div>
+          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+            ${formatTextContent(whisper)}
+          </div>
+        </div>
+      `;
+    }
+    
+    // 如果没有匹配到特定类型，作为普通对话处理
+    return `
+      <div class="p-4 rounded-lg mb-3 bg-gray-50 dark:bg-gray-800/50 shadow-advanced dark:shadow-advanced-dark">
+        <div class="text-gray-700 dark:text-gray-300 leading-relaxed">
+          ${formatTextContent(section)}
+        </div>
+      </div>
+    `;
+  });
+
+  return `<div class="space-y-2">${formattedSections.join('')}</div>`;
+};
+
+// 格式化文本内容（处理粗体、斜体、代码等）
+const formatTextContent = (text: string): string => {
+  let formattedText = text;
+
+  // 处理粗体文本
+  formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-gray-800 dark:text-gray-200">$1</span>');
+  
+  // 处理斜体文本
+  formattedText = formattedText.replace(/\*(.*?)\*/g, '<em class="italic text-gray-700 dark:text-gray-300">$1</em>');
+  
+  // 处理行内代码
+  formattedText = formattedText.replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">$1</code>');
+  
+  // 处理换行
+  formattedText = formattedText.replace(/\n/g, '<br>');
+
+  return formattedText;
 };

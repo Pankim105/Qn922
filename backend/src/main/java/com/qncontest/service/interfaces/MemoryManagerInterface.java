@@ -31,11 +31,4 @@ public interface MemoryManagerInterface {
      */
     void storeMemory(String sessionId, String content, String memoryType, double importance);
     
-    /**
-     * 处理记忆标记
-     * @param sessionId 会话ID
-     * @param aiResponse AI回复
-     * @param userAction 用户行为
-     */
-    void processMemoryMarkers(String sessionId, String aiResponse, String userAction);
 }

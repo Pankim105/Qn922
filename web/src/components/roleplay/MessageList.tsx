@@ -20,7 +20,6 @@ const MessageList: React.FC<MessageListProps> = memo(({
   onChoiceSelect,
   onFreeActionModeChange,
   skillsState,
-  worldState,
   structuredContent
 }) => {
   // 获取消息卡片样式
@@ -110,15 +109,13 @@ const MessageList: React.FC<MessageListProps> = memo(({
                   </div>
                 )}
                 <GameLayout
-                  message={message}
                   isDark={isDark}
                   isLoading={isLoading}
                   isAssessing={message.assessmentLoading || false}
                   onChoiceSelect={onChoiceSelect}
                   onFreeActionModeChange={onFreeActionModeChange}
                   skillsState={skillsState}
-                  worldState={worldState}
-                  structuredContent={structuredContent}
+                  structuredContent={message.structuredContent || structuredContent}
                 />
                 <div className="text-xs opacity-70 mt-3 text-right">
                   {message.timestamp.toLocaleTimeString()}

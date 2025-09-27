@@ -30,8 +30,20 @@ public class WorldTemplateService {
         logger.debug("获取所有世界模板");
         List<WorldTemplate> templates = worldTemplateRepository.findAllOrderByWorldId();
         return templates.stream()
-                .map(WorldTemplateResponse::simple)
+                .map(this::createWorldTemplateResponseWithCharacterTemplates)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 创建包含角色模板的世界模板响应
+     */
+    private WorldTemplateResponse createWorldTemplateResponseWithCharacterTemplates(WorldTemplate template) {
+        WorldTemplateResponse response = new WorldTemplateResponse();
+        response.setWorldId(template.getWorldId());
+        response.setWorldName(template.getWorldName());
+        response.setDescription(template.getDescription());
+        response.setCharacterTemplates(template.getCharacterTemplates());
+        return response;
     }
     
     /**

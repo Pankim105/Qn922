@@ -66,9 +66,6 @@ public class ChatSession {
     @Column(name = "completed_quests", columnDefinition = "JSON")
     private String completedQuests;          // 已完成任务列表
     
-    @Column(name = "character_stats", columnDefinition = "JSON")
-    private String characterStats;           // 角色属性（等级、经验、金币等）
-    
     @Column
     private Integer version = 1;
     
@@ -270,13 +267,6 @@ public class ChatSession {
         this.completedQuests = completedQuests;
     }
     
-    public String getCharacterStats() {
-        return characterStats;
-    }
-    
-    public void setCharacterStats(String characterStats) {
-        this.characterStats = characterStats;
-    }
 
     // 轮次/情节字段的 Getters/Setters
     public Integer getTotalRounds() {

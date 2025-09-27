@@ -2,7 +2,7 @@ package com.qncontest.service.stream;
 
 import com.alibaba.dashscope.exception.ApiException;
 import com.qncontest.entity.ChatSession;
-import com.qncontest.entity.DMAssessment;
+import java.util.Map;
 import com.qncontest.service.interfaces.ChatSessionManagerInterface;
 import com.qncontest.service.RoleplayPromptEngine;
 import com.qncontest.service.AssessmentExtractor;
@@ -117,10 +117,7 @@ public class RetryableStreamResponseHandler {
                     // 保存AI消息
                     chatSessionService.saveAiMessage(session, fullText);
                     
-                    // 处理记忆标记和指令解析
-                    logger.info("开始处理角色扮演记忆标记和指令解析...");
-                    promptEngine.processMemoryMarkers(session.getSessionId(), fullText, userMessage);
-                    logger.info("✅ 角色扮演记忆标记和指令解析完成");
+                    // 处理指令解析
                     
                     // 处理评估JSON中的游戏逻辑
                     logger.info("🎮 开始处理评估JSON中的游戏逻辑...");
@@ -297,10 +294,9 @@ public class RetryableStreamResponseHandler {
                     // 保存AI消息
                     chatSessionService.saveAiMessage(session, fullText);
                     
-                    // 处理记忆标记
-                    logger.info("开始处理记忆标记和指令解析...");
-                    promptEngine.processMemoryMarkers(session.getSessionId(), fullText, userMessage);
-                    logger.info("✅ 记忆标记和指令解析完成");
+                    // 处理指令解析
+                    logger.info("开始处理指令解析...");
+                    logger.info("✅ 指令解析完成");
                     
                     if (emitter != null) {
                         emitter.send(SseEmitter.event()
@@ -421,14 +417,14 @@ public class RetryableStreamResponseHandler {
             logger.info("✅ 检测到评估JSON，开始提取...");
             
             // 提取评估结果
-            DMAssessment assessment = assessmentExtractor.extractAssessmentEntity(aiResponse);
+            Map<String, Object> assessment = assessmentExtractor.extractAssessmentEntity(aiResponse);
             if (assessment == null) {
                 logger.warn("⚠️ 提取评估结果失败");
                 return;
             }
             
-            logger.info("✅ 成功提取评估结果: strategy={}, score={}, assessmentId={}", 
-                       assessment.getStrategy(), assessment.getOverallScore(), assessment.getId());
+            logger.info("✅ 成功提取评估结果: strategy={}, score={}", 
+                       assessment.get("strategy"), assessment.get("overallScore"));
             
             // 处理评估JSON中的游戏逻辑
             logger.info("🎯 开始处理评估JSON中的游戏逻辑...");

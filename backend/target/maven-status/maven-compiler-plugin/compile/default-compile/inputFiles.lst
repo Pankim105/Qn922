@@ -25,7 +25,6 @@ C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\se
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\controller\RoleplayController.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\interfaces\AssessmentExtractorInterface.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\WorldState.java
-C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\DMAssessment.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\controller\AuthController.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\security\JwtUtils.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\stream\StreamResponseHandler.java
@@ -78,6 +77,5 @@ C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\se
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\entity\DiceRoll.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\stream\SmartStreamHandler.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\WorldTemplateService.java
-C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\prompt\MemoryMarkerProcessor.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\service\interfaces\SkillActionProcessorInterface.java
 C:\Users\10596\Desktop\Programm\qncontest\backend\src\main\java\com\qncontest\config\AiConfig.java

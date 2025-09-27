@@ -12,16 +12,18 @@ import {
   Globe,
   MessageCircle,
   ArrowRight,
-  BookOpen
+  BookOpen,
+  Search,
+  Rocket
 } from 'lucide-react';
 
-// 结构化内容解析模式 - 支持可选冒号格式
+// 结构化内容解析模式 - 支持新的方括号格式和旧的星号格式
 export const STRUCTURED_CONTENT_PATTERNS = {
-  dialogue: /(?:\/\*|\\\*)DIALOGUE:?(.*?)(?:\*\/|\*\/)/gs,
-  status: /(?:\/\*|\\\*)STATUS:?(.*?)(?:\*\/|\*\/)/gs,
-  world: /(?:\/\*|\\\*)WORLD:?(.*?)(?:\*\/|\*\/)/gs,
-  quests: /(?:\/\*|\\\*)QUESTS\s*:?(.*?)(?:\*\/|\*\/)/gs,
-  choices: /(?:\/\*|\\\*)CHOICES:?(.*?)(?:\*\/|\*\/)/gs,
+  dialogue: /(?:\[DIALOGUE\]|(?:\/\*|\\\*)DIALOGUE:?)(.*?)(?:\[\/DIALOGUE\]|(?:\*\/|\*\/))/gs,
+  status: /(?:\[STATUS\]|(?:\/\*|\\\*)STATUS:?)(.*?)(?:\[\/STATUS\]|(?:\*\/|\*\/))/gs,
+  world: /(?:\[WORLD\]|(?:\/\*|\\\*)WORLD:?)(.*?)(?:\[\/WORLD\]|(?:\*\/|\*\/))/gs,
+  quests: /(?:\[QUESTS\]|(?:\/\*|\\\*)QUESTS\s*:?)(.*?)(?:\[\/QUESTS\]|(?:\*\/|\*\/))/gs,
+  choices: /(?:\[CHOICES\]|(?:\/\*|\\\*)CHOICES:?)(.*?)(?:\[\/CHOICES\]|(?:\*\/|\*\/))/gs,
   assessment: /§({.*?})§/gs, // 评估JSON格式：§{...}§
 };
 
@@ -47,7 +49,9 @@ export const worldIcons = {
   western_magic: <Wand2 className="w-4 h-4" />,
   martial_arts: <Crown className="w-4 h-4" />,
   japanese_school: <Heart className="w-4 h-4" />,
-  educational: <GraduationCap className="w-4 h-4" />
+  educational: <GraduationCap className="w-4 h-4" />,
+  detective_mystery: <Search className="w-4 h-4" />,
+  sci_fi_future: <Rocket className="w-4 h-4" />
 };
 
 // 世界类型颜色映射 - 浅色模式友好
@@ -71,6 +75,14 @@ export const worldColors = {
   educational: {
     light: 'from-green-100 to-emerald-200 text-green-900',
     dark: 'from-green-600 to-emerald-700 text-white'
+  },
+  detective_mystery: {
+    light: 'from-slate-100 to-gray-200 text-slate-900',
+    dark: 'from-slate-600 to-gray-700 text-white'
+  },
+  sci_fi_future: {
+    light: 'from-cyan-100 to-teal-200 text-cyan-900',
+    dark: 'from-cyan-600 to-teal-700 text-white'
   }
 };
 
@@ -96,6 +108,14 @@ export const aiRoleColors = {
     light: 'from-emerald-100 to-green-200 text-emerald-900',
     dark: 'from-emerald-600 to-green-700 text-white'
   },
+  '侦探大师': {
+    light: 'from-slate-100 to-gray-200 text-slate-900',
+    dark: 'from-slate-600 to-gray-700 text-white'
+  },
+  '科技向导': {
+    light: 'from-cyan-100 to-teal-200 text-cyan-900',
+    dark: 'from-cyan-600 to-teal-700 text-white'
+  },
   '向导': {
     light: 'from-gray-100 to-slate-200 text-gray-900',
     dark: 'from-gray-600 to-slate-700 text-white'
@@ -109,6 +129,8 @@ export const aiRoleIcons = {
   '江湖前辈': <Sword className="w-3 h-3" />,
   '校园向导': <Heart className="w-3 h-3" />,
   '智慧导师': <GraduationCap className="w-3 h-3" />,
+  '侦探大师': <Search className="w-3 h-3" />,
+  '科技向导': <Rocket className="w-3 h-3" />,
   '向导': <Zap className="w-3 h-3" />
 };
 
@@ -130,7 +152,9 @@ export const getAIRoleName = (worldType: string): string => {
     western_magic: '贤者向导',
     martial_arts: '江湖前辈',
     japanese_school: '校园向导',
-    educational: '智慧导师'
+    educational: '智慧导师',
+    detective_mystery: '侦探大师',
+    sci_fi_future: '科技向导'
   };
   return roleNames[worldType as keyof typeof roleNames] || '向导';
 };

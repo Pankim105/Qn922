@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Card, CardHeader, CardTitle, CardContent } from 'modern-ui-components';
-import { Send, Bot, User, Loader2, AlertCircle, RefreshCw, History, MessageSquare, Trash2, Clock } from 'lucide-react';
+import { Send, Bot, User, Loader2, AlertCircle, History, MessageSquare, Trash2, Clock } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -29,7 +29,7 @@ interface ChatHistoryMessage {
   content: string;
 }
 
-const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated, onAuthFailure }) => {
+const EnhancedAIChat: React.FC<EnhancedAIChatProps> = ({ isAuthenticated }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',

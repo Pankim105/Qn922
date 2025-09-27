@@ -126,6 +126,43 @@ DELETE /chat/session/{sessionId}
 Authorization: Bearer {token}
 ```
 
+## 语音接口
+
+### 语音识别
+```http
+POST /voice/recognize
+Authorization: Bearer {token}
+Content-Type: multipart/form-data
+
+audio: [音频文件]
+language: zh-CN (可选，默认中文)
+worldType: fantasy_adventure (可选)
+sessionId: session_123 (可选)
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "语音识别成功",
+  "data": {
+    "transcript": "我想开始一场奇幻冒险",
+    "confidence": 0.95,
+    "language": "zh-CN",
+    "processedText": "我想开始一场奇幻冒险"
+  }
+}
+```
+
+**错误响应**:
+```json
+{
+  "success": false,
+  "message": "语音识别失败",
+  "error": "无法访问麦克风，请检查权限"
+}
+```
+
 ## 角色扮演接口
 
 ### 获取世界模板列表

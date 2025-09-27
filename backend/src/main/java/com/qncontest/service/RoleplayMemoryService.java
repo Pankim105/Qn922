@@ -1,14 +1,14 @@
 package com.qncontest.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.qncontest.entity.ChatSession;
+import com.qncontest.entity.ChatMessage;
 import com.qncontest.entity.WorldEvent;
-import com.qncontest.entity.WorldState;
 import com.qncontest.repository.ChatSessionRepository;
+import com.qncontest.repository.ChatMessageRepository;
 import com.qncontest.repository.WorldEventRepository;
-import com.qncontest.repository.WorldStateRepository;
+import com.qncontest.service.interfaces.MemoryManagerInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * 基于现有的ChatSession、WorldEvent、WorldState表结构
  */
 @Service
-public class RoleplayMemoryService {
+public class RoleplayMemoryService implements MemoryManagerInterface {
 
     private static final Logger logger = LoggerFactory.getLogger(RoleplayMemoryService.class);
 
@@ -40,10 +40,10 @@ public class RoleplayMemoryService {
     private ChatSessionRepository chatSessionRepository;
 
     @Autowired
-    private WorldEventRepository worldEventRepository;
+    private ChatMessageRepository chatMessageRepository;
 
     @Autowired
-    private WorldStateRepository worldStateRepository;
+    private WorldEventRepository worldEventRepository;
     
     /**
      * 角色记忆结构
@@ -292,6 +292,391 @@ public class RoleplayMemoryService {
         }
 
         return context.toString();
+    }
+
+    /**
+     * 构建简化的第四层记忆上下文
+     * 基于ChatSession的worldState、skillsState、最近消息历史和WorldEvent记录
+     */
+    public String buildSimplifiedMemoryContext(String sessionId, String currentMessage) {
+        try {
+            StringBuilder context = new StringBuilder();
+            
+            // 1. 获取ChatSession信息
+            Optional<ChatSession> sessionOpt = chatSessionRepository.findById(sessionId);
+            if (!sessionOpt.isPresent()) {
+                return "";
+            }
+            
+            ChatSession session = sessionOpt.get();
+            
+            // 2. 构建世界状态上下文
+            String worldStateContext = buildWorldStateContext(session);
+            if (!worldStateContext.isEmpty()) {
+                context.append("## 🌍 世界状态记忆\n");
+                context.append(worldStateContext).append("\n\n");
+            }
+            
+            // 3. 构建角色状态上下文
+            String skillsStateContext = buildSkillsStateContext(session);
+            if (!skillsStateContext.isEmpty()) {
+                context.append("## 🎭 角色状态记忆\n");
+                context.append(skillsStateContext).append("\n\n");
+            }
+            
+            // 4. 构建最近消息历史上下文
+            String recentMessagesContext = buildRecentMessagesContext(sessionId, currentMessage);
+            if (!recentMessagesContext.isEmpty()) {
+                context.append("## 💬 最近对话记忆\n");
+                context.append(recentMessagesContext).append("\n\n");
+            }
+            
+            // 5. 构建重要事件上下文
+            String importantEventsContext = buildImportantEventsContext(sessionId, currentMessage);
+            if (!importantEventsContext.isEmpty()) {
+                context.append("## 📅 重要事件记忆\n");
+                context.append(importantEventsContext).append("\n\n");
+            }
+            
+            return context.toString();
+            
+        } catch (Exception e) {
+            logger.error("构建简化记忆上下文失败: sessionId={}", sessionId, e);
+            return "";
+        }
+    }
+    
+    /**
+     * 构建世界状态上下文
+     */
+    private String buildWorldStateContext(ChatSession session) {
+        try {
+            String worldState = session.getWorldState();
+            if (worldState == null || worldState.trim().isEmpty() || worldState.equals("{}")) {
+                return "";
+            }
+            
+            // 解析世界状态JSON，提取关键信息
+            JsonNode worldStateJson = objectMapper.readTree(worldState);
+            StringBuilder context = new StringBuilder();
+            
+            // 提取位置信息
+            if (worldStateJson.has("currentLocation")) {
+                context.append("当前位置: ").append(worldStateJson.get("currentLocation").asText()).append("\n");
+            }
+            
+            // 提取环境信息
+            if (worldStateJson.has("environment")) {
+                context.append("环境状态: ").append(worldStateJson.get("environment").asText()).append("\n");
+            }
+            
+            // 提取活跃任务信息
+            if (worldStateJson.has("activeQuests") && worldStateJson.get("activeQuests").isArray()) {
+                JsonNode activeQuests = worldStateJson.get("activeQuests");
+                if (activeQuests.size() > 0) {
+                    context.append("当前任务: ");
+                    for (int i = 0; i < Math.min(activeQuests.size(), 3); i++) {
+                        JsonNode quest = activeQuests.get(i);
+                        if (quest.has("title")) {
+                            context.append(quest.get("title").asText());
+                            if (i < Math.min(activeQuests.size(), 3) - 1) {
+                                context.append(", ");
+                            }
+                        }
+                    }
+                    context.append("\n");
+                }
+            }
+            
+            // 提取NPC信息
+            if (worldStateJson.has("npcs") && worldStateJson.get("npcs").isArray()) {
+                JsonNode npcs = worldStateJson.get("npcs");
+                if (npcs.size() > 0) {
+                    context.append("重要NPC: ");
+                    for (int i = 0; i < Math.min(npcs.size(), 3); i++) {
+                        JsonNode npc = npcs.get(i);
+                        if (npc.has("name")) {
+                            context.append(npc.get("name").asText());
+                            if (i < Math.min(npcs.size(), 3) - 1) {
+                                context.append(", ");
+                            }
+                        }
+                    }
+                    context.append("\n");
+                }
+            }
+            
+            return context.toString();
+            
+        } catch (Exception e) {
+            logger.warn("解析世界状态失败: sessionId={}", session.getSessionId(), e);
+            return "";
+        }
+    }
+    
+    /**
+     * 构建角色状态上下文
+     */
+    private String buildSkillsStateContext(ChatSession session) {
+        try {
+            String skillsState = session.getSkillsState();
+            if (skillsState == null || skillsState.trim().isEmpty() || skillsState.equals("{}")) {
+                return "";
+            }
+            
+            // 解析角色状态JSON，提取关键信息
+            JsonNode skillsStateJson = objectMapper.readTree(skillsState);
+            StringBuilder context = new StringBuilder();
+            
+            // 提取角色基本信息
+            if (skillsStateJson.has("level")) {
+                context.append("角色等级: ").append(skillsStateJson.get("level").asText()).append("\n");
+            }
+            
+            if (skillsStateJson.has("experience")) {
+                context.append("经验值: ").append(skillsStateJson.get("experience").asText()).append("\n");
+            }
+            
+            if (skillsStateJson.has("health")) {
+                context.append("生命值: ").append(skillsStateJson.get("health").asText()).append("\n");
+            }
+            
+            // 提取属性信息
+            if (skillsStateJson.has("attributes")) {
+                JsonNode attributes = skillsStateJson.get("attributes");
+                if (attributes.has("strength")) {
+                    context.append("力量: ").append(attributes.get("strength").asText()).append(" ");
+                }
+                if (attributes.has("intelligence")) {
+                    context.append("智力: ").append(attributes.get("intelligence").asText()).append(" ");
+                }
+                if (attributes.has("agility")) {
+                    context.append("敏捷: ").append(attributes.get("agility").asText()).append(" ");
+                }
+                if (attributes.has("constitution")) {
+                    context.append("体质: ").append(attributes.get("constitution").asText());
+                }
+                context.append("\n");
+            }
+            
+            // 提取技能信息
+            if (skillsStateJson.has("skills") && skillsStateJson.get("skills").isArray()) {
+                JsonNode skills = skillsStateJson.get("skills");
+                if (skills.size() > 0) {
+                    context.append("主要技能: ");
+                    for (int i = 0; i < Math.min(skills.size(), 3); i++) {
+                        JsonNode skill = skills.get(i);
+                        if (skill.has("name")) {
+                            context.append(skill.get("name").asText());
+                            if (i < Math.min(skills.size(), 3) - 1) {
+                                context.append(", ");
+                            }
+                        }
+                    }
+                    context.append("\n");
+                }
+            }
+            
+            return context.toString();
+            
+        } catch (Exception e) {
+            logger.warn("解析角色状态失败: sessionId={}", session.getSessionId(), e);
+            return "";
+        }
+    }
+    
+    /**
+     * 构建最近消息历史上下文
+     */
+    private String buildRecentMessagesContext(String sessionId, String currentMessage) {
+        try {
+            // 获取最近的消息历史（最多5条）
+            List<ChatMessage> recentMessages = chatMessageRepository.findByChatSessionOrderBySequenceNumberAsc(
+                chatSessionRepository.findById(sessionId).orElse(null)
+            );
+            
+            if (recentMessages == null || recentMessages.isEmpty()) {
+                return "";
+            }
+            
+            // 取最近的几条消息
+            List<ChatMessage> lastMessages = recentMessages.stream()
+                .skip(Math.max(0, recentMessages.size() - 5))
+                .collect(Collectors.toList());
+            
+            StringBuilder context = new StringBuilder();
+            
+            for (ChatMessage message : lastMessages) {
+                String role = message.getRole() == ChatMessage.MessageRole.USER ? "玩家" : "AI";
+                String content = message.getContent();
+                
+                // 截取过长的消息
+                if (content.length() > 100) {
+                    content = content.substring(0, 100) + "...";
+                }
+                
+                context.append("- ").append(role).append(": ").append(content).append("\n");
+            }
+            
+            return context.toString();
+            
+        } catch (Exception e) {
+            logger.warn("获取最近消息历史失败: sessionId={}", sessionId, e);
+            return "";
+        }
+    }
+    
+    /**
+     * 构建重要事件上下文
+     */
+    private String buildImportantEventsContext(String sessionId, String currentMessage) {
+        try {
+            // 获取最近的重要事件（包含多种事件类型，最多10条）
+            List<WorldEvent> recentEvents = worldEventRepository.findBySessionIdOrderByTimestampDesc(sessionId);
+            
+            if (recentEvents == null || recentEvents.isEmpty()) {
+                return "";
+            }
+            
+            // 过滤出重要的事件类型，并按时间排序
+            List<WorldEvent> importantEvents = recentEvents.stream()
+                .filter(event -> isImportantEventType(event.getEventType()))
+                .limit(10) // 增加事件数量
+                .collect(Collectors.toList());
+            
+            if (importantEvents.isEmpty()) {
+                return "";
+            }
+            
+            StringBuilder context = new StringBuilder();
+            
+            for (WorldEvent event : importantEvents) {
+                try {
+                    String eventDescription = buildEventDescription(event);
+                    if (!eventDescription.isEmpty()) {
+                        context.append("- ").append(eventDescription).append("\n");
+                    }
+                } catch (Exception e) {
+                    logger.debug("解析事件数据失败: eventId={}", event.getId(), e);
+                }
+            }
+            
+            return context.toString();
+            
+        } catch (Exception e) {
+            logger.warn("获取重要事件失败: sessionId={}", sessionId, e);
+            return "";
+        }
+    }
+    
+    /**
+     * 判断是否为重要的事件类型
+     */
+    private boolean isImportantEventType(WorldEvent.EventType eventType) {
+        return eventType == WorldEvent.EventType.DICE_ROLL ||
+               eventType == WorldEvent.EventType.QUEST_UPDATE ||
+               eventType == WorldEvent.EventType.STATE_CHANGE ||
+               eventType == WorldEvent.EventType.CHARACTER_UPDATE ||
+               eventType == WorldEvent.EventType.SKILL_USE ||
+               eventType == WorldEvent.EventType.LOCATION_CHANGE ||
+               eventType == WorldEvent.EventType.SYSTEM_EVENT;
+    }
+    
+    /**
+     * 构建事件描述
+     */
+    private String buildEventDescription(WorldEvent event) {
+        try {
+            JsonNode eventData = objectMapper.readTree(event.getEventData());
+            StringBuilder description = new StringBuilder();
+            
+            // 根据事件类型构建不同的描述
+            switch (event.getEventType()) {
+                case DICE_ROLL:
+                    if (eventData.has("diceType") && eventData.has("result")) {
+                        String diceType = eventData.get("diceType").asText();
+                        int result = eventData.get("result").asInt();
+                        String context = eventData.has("context") ? eventData.get("context").asText() : "检定";
+                        boolean isSuccessful = eventData.has("isSuccessful") ? eventData.get("isSuccessful").asBoolean() : false;
+                        description.append("骰子检定: ").append(context).append(" (")
+                                  .append(diceType).append("=").append(result)
+                                  .append(isSuccessful ? ", 成功" : ", 失败").append(")");
+                    }
+                    break;
+                    
+                case QUEST_UPDATE:
+                    if (eventData.has("type")) {
+                        String type = eventData.get("type").asText();
+                        description.append("任务更新: ").append(type);
+                        if (eventData.has("questId")) {
+                            description.append(" (任务ID: ").append(eventData.get("questId").asText()).append(")");
+                        }
+                    }
+                    break;
+                    
+                case STATE_CHANGE:
+                    if (eventData.has("change")) {
+                        String change = eventData.get("change").asText();
+                        description.append("状态变化: ").append(change);
+                    }
+                    break;
+                    
+                case CHARACTER_UPDATE:
+                    if (eventData.has("type")) {
+                        String type = eventData.get("type").asText();
+                        description.append("角色更新: ").append(type);
+                        if (eventData.has("oldLevel") && eventData.has("newLevel")) {
+                            description.append(" (等级: ").append(eventData.get("oldLevel").asInt())
+                                      .append(" -> ").append(eventData.get("newLevel").asInt()).append(")");
+                        }
+                    }
+                    break;
+                    
+                case SKILL_USE:
+                    if (eventData.has("skillName")) {
+                        String skillName = eventData.get("skillName").asText();
+                        description.append("技能使用: ").append(skillName);
+                    }
+                    break;
+                    
+                case LOCATION_CHANGE:
+                    if (eventData.has("from") && eventData.has("to")) {
+                        String from = eventData.get("from").asText();
+                        String to = eventData.get("to").asText();
+                        description.append("位置变化: ").append(from).append(" -> ").append(to);
+                    }
+                    break;
+                    
+                case SYSTEM_EVENT:
+                    if (eventData.has("content")) {
+                        String content = eventData.get("content").asText();
+                        String type = eventData.has("type") ? eventData.get("type").asText() : "系统事件";
+                        description.append(type).append(": ").append(content);
+                    }
+                    break;
+                    
+                default:
+                    // 对于其他类型，尝试提取通用信息
+                    if (eventData.has("content")) {
+                        description.append("事件: ").append(eventData.get("content").asText());
+                    } else if (eventData.has("type")) {
+                        description.append("事件: ").append(eventData.get("type").asText());
+                    }
+                    break;
+            }
+            
+            // 截取过长的描述
+            String result = description.toString();
+            if (result.length() > 100) {
+                result = result.substring(0, 100) + "...";
+            }
+            
+            return result;
+            
+        } catch (Exception e) {
+            logger.debug("构建事件描述失败: eventId={}", event.getId(), e);
+            return "";
+        }
     }
 
     /**

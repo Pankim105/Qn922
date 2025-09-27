@@ -2,7 +2,6 @@ package com.qncontest.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.qncontest.entity.DMAssessment;
 import com.qncontest.service.interfaces.AssessmentExtractorInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +27,7 @@ public class AssessmentExtractor implements AssessmentExtractorInterface {
      * @param fullContent 完整的AI响应内容
      * @return 提取的评估结果，如果没有找到则返回null
      */
-    public DMAssessment extractAssessmentEntity(String fullContent) {
+    public Map<String, Object> extractAssessmentEntity(String fullContent) {
         logger.info("🔍 开始提取评估JSON: 内容长度={}", fullContent != null ? fullContent.length() : 0);
         
         if (fullContent == null || fullContent.isEmpty()) {
@@ -76,10 +75,10 @@ public class AssessmentExtractor implements AssessmentExtractorInterface {
             }
 
             // 解析评估JSON
-            DMAssessment result = parseAssessmentJson(assessmentContent);
+            Map<String, Object> result = parseAssessmentJson(assessmentContent);
             if (result != null) {
                 logger.info("✅ 评估JSON提取成功: strategy={}, score={}", 
-                           result.getStrategy(), result.getOverallScore());
+                           result.get("strategy"), result.get("overallScore"));
             } else {
                 logger.warn("⚠️ 评估JSON解析失败");
             }
@@ -94,7 +93,8 @@ public class AssessmentExtractor implements AssessmentExtractorInterface {
     /**
      * 解析评估JSON内容
      */
-    private DMAssessment parseAssessmentJson(String assessmentContent) {
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseAssessmentJson(String assessmentContent) {
         try {
             logger.info("🔧 开始解析评估JSON: 长度={}", assessmentContent.length());
             
@@ -105,13 +105,13 @@ public class AssessmentExtractor implements AssessmentExtractorInterface {
                        assessmentContent.length(), cleanedJson.length());
             logger.debug("清理后的评估JSON: {}", cleanedJson);
             
-            // 解析为DMAssessment对象
-            DMAssessment assessment = objectMapper.readValue(cleanedJson, DMAssessment.class);
+            // 解析为Map对象
+            Map<String, Object> assessment = objectMapper.readValue(cleanedJson, Map.class);
             
             logger.info("✅ 成功解析评估结果: strategy={}, score={}, compliance={}, consistency={}, convergence={}", 
-                       assessment.getStrategy(), assessment.getOverallScore(),
-                       assessment.getRuleCompliance(), assessment.getContextConsistency(), 
-                       assessment.getConvergenceProgress());
+                       assessment.get("strategy"), assessment.get("overallScore"),
+                       assessment.get("ruleCompliance"), assessment.get("contextConsistency"), 
+                       assessment.get("convergenceProgress"));
             
             // 记录各个字段的解析情况
             logAssessmentFields(assessment);
@@ -127,16 +127,16 @@ public class AssessmentExtractor implements AssessmentExtractorInterface {
     /**
      * 记录评估字段的解析情况
      */
-    private void logAssessmentFields(DMAssessment assessment) {
+    private void logAssessmentFields(Map<String, Object> assessment) {
         logger.info("📊 评估字段解析情况:");
-        logger.info("  - diceRolls: {}", assessment.getDiceRolls() != null ? "有数据" : "无数据");
-        logger.info("  - learningChallenges: {}", assessment.getLearningChallenges() != null ? "有数据" : "无数据");
-        logger.info("  - stateUpdates: {}", assessment.getStateUpdates() != null ? "有数据" : "无数据");
-        logger.info("  - questUpdates: {}", assessment.getQuestUpdates() != null ? "有数据" : "无数据");
-        logger.info("  - worldStateUpdates: {}", assessment.getWorldStateUpdates() != null ? "有数据" : "无数据");
-        logger.info("  - skillsStateUpdates: {}", assessment.getSkillsStateUpdates() != null ? "有数据" : "无数据");
-        logger.info("  - arcUpdates: {}", assessment.getArcUpdates() != null ? "有数据" : "无数据");
-        logger.info("  - convergenceStatusUpdates: {}", assessment.getConvergenceStatusUpdates() != null ? "有数据" : "无数据");
+        logger.info("  - diceRolls: {}", assessment.get("diceRolls") != null ? "有数据" : "无数据");
+        logger.info("  - learningChallenges: {}", assessment.get("learningChallenges") != null ? "有数据" : "无数据");
+        logger.info("  - stateUpdates: {}", assessment.get("stateUpdates") != null ? "有数据" : "无数据");
+        logger.info("  - memoryUpdates: {}", assessment.get("memoryUpdates") != null ? "有数据" : "无数据");
+        logger.info("  - questUpdates: {}", assessment.get("questUpdates") != null ? "有数据" : "无数据");
+        logger.info("  - worldStateUpdates: {}", assessment.get("worldStateUpdates") != null ? "有数据" : "无数据");
+        logger.info("  - arcUpdates: {}", assessment.get("arcUpdates") != null ? "有数据" : "无数据");
+        logger.info("  - convergenceStatusUpdates: {}", assessment.get("convergenceStatusUpdates") != null ? "有数据" : "无数据");
     }
 
     /**
@@ -168,7 +168,7 @@ public class AssessmentExtractor implements AssessmentExtractorInterface {
      */
     private String removeDuplicateFields(String json) {
         // 简单的重复字段移除，针对常见的重复字段
-        String[] duplicateFields = {"worldStateUpdates", "skillsStateUpdates", "questUpdates"};
+        String[] duplicateFields = {"worldStateUpdates", "questUpdates", "memoryUpdates"};
 
         for (String field : duplicateFields) {
             String pattern = String.format(", \"%s\": \\{[^}]*\\}, \"%s\": \\{[^}]*\\}", field, field);
@@ -229,20 +229,7 @@ public class AssessmentExtractor implements AssessmentExtractorInterface {
      */
     @Override
     public Map<String, Object> extractAssessment(String aiResponse) {
-        DMAssessment assessment = extractAssessmentEntity(aiResponse);
-        if (assessment == null) {
-            return null;
-        }
-        
-        try {
-            // 将DMAssessment转换为Map
-            @SuppressWarnings("unchecked")
-            Map<String, Object> result = objectMapper.convertValue(assessment, Map.class);
-            return result;
-        } catch (Exception e) {
-            logger.error("转换评估结果为Map失败", e);
-            return null;
-        }
+        return extractAssessmentEntity(aiResponse);
     }
     
     /**

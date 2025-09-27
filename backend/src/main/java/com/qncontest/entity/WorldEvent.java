@@ -42,6 +42,7 @@ public class WorldEvent {
         SKILL_USE,        // 技能使用
         LOCATION_CHANGE,  // 地点变更
         CHARACTER_UPDATE, // 角色更新
+        MEMORY_UPDATE,    // 记忆更新
         SYSTEM_EVENT      // 系统事件
     }
     

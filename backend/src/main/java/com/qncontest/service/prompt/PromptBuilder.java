@@ -1,7 +1,6 @@
 package com.qncontest.service.prompt;
 
 import com.qncontest.entity.ChatSession;
-import com.qncontest.service.interfaces.MemoryManagerInterface;
 import com.qncontest.service.interfaces.PromptBuilderInterface;
 import com.qncontest.service.interfaces.WorldTemplateProcessorInterface;
 import com.qncontest.dto.WorldTemplateResponse;
@@ -26,14 +25,15 @@ public class PromptBuilder implements PromptBuilderInterface {
     @Autowired
     private WorldTemplateProcessorInterface worldTemplateProcessor;
     
-    @Autowired
-    private MemoryManagerInterface memoryService;
     
     @Autowired
     private com.qncontest.service.WorldTemplateService worldTemplateService;
     
     @Autowired
     private com.qncontest.service.ConvergenceStatusService convergenceStatusService;
+    
+    @Autowired
+    private com.qncontest.service.interfaces.MemoryManagerInterface memoryService;
     
     @Autowired
     private ObjectMapper objectMapper;
@@ -95,23 +95,23 @@ public class PromptBuilder implements PromptBuilderInterface {
         StringBuilder prompt = new StringBuilder();
         
         // 第1层：世界观基础
-        prompt.append("# 🌍 世界观设定\n");
+        prompt.append("🌍 世界观设定\n");
         prompt.append(worldTemplateProcessor.getWorldFoundation(context.getWorldType()));
         prompt.append("\n\n");
         
         // 第2层：角色定义
-        prompt.append("# 🎭 你的角色\n");
+        prompt.append("🎭 你的角色\n");
         prompt.append(buildCharacterDefinition(context));
         prompt.append("\n\n");
         
         // 第3层：当前状态
-        prompt.append("# 📍 当前状态\n");
+        prompt.append("📍 当前状态\n");
         prompt.append(buildCurrentState(context));
         prompt.append("\n\n");
 
         // 轮次与情节信息
         if (context.getTotalRounds() != null) {
-            prompt.append("# ⏱️ 轮次与情节\n");
+            prompt.append("⏱️ 轮次与情节\n");
             prompt.append("当前总轮数: ").append(context.getTotalRounds()).append("\n");
             if (context.getCurrentArcStartRound() != null) {
                 prompt.append("当前情节起始轮数: ").append(context.getCurrentArcStartRound()).append("\n");
@@ -131,34 +131,30 @@ public class PromptBuilder implements PromptBuilderInterface {
         try {
             String convergenceSummary = convergenceStatusService.getConvergenceStatusSummary(context.getSessionId());
             if (convergenceSummary != null && !convergenceSummary.isEmpty()) {
-                prompt.append("# 🎯 收敛状态\n");
+                prompt.append("🎯 收敛状态\n");
                 prompt.append(convergenceSummary).append("\n\n");
             }
         } catch (Exception e) {
             logger.debug("获取收敛状态摘要失败: {}", e.getMessage());
         }
 
-        // 第4层：记忆上下文
-        String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
-        if (!memoryContext.isEmpty()) {
-            prompt.append("# 🧠 相关记忆\n");
-            prompt.append(memoryContext);
-            prompt.append("\n\n");
+        // 第4层：记忆上下文（使用简化的记忆上下文构建方法）
+        try {
+            String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
+            if (!memoryContext.isEmpty()) {
+                prompt.append("🧠 相关记忆\n");
+                prompt.append(memoryContext);
+                prompt.append("\n\n");
+            }
+        } catch (Exception e) {
+            logger.debug("获取记忆上下文失败: {}", e.getMessage());
         }
 
-        // 记忆管理指令
-        prompt.append("# 💭 记忆管理指令\n");
-        prompt.append(buildMemoryInstructions());
-        prompt.append("\n\n");
-
         // 第5层：行为规则
-        prompt.append("# ⚖️ 行为准则\n");
+        prompt.append("⚖️ 行为准则\n");
         prompt.append(buildBehaviorRules(context));
         prompt.append("\n\n");
         
-        // 第6层：技能集成
-        prompt.append("# 🛠️ 可用技能\n");
-        prompt.append(buildSkillInstructions());
         
         return prompt.toString();
     }
@@ -170,17 +166,17 @@ public class PromptBuilder implements PromptBuilderInterface {
         StringBuilder prompt = new StringBuilder();
 
         // 第1层：世界观基础
-        prompt.append("# 🌍 世界观设定\n");
+        prompt.append("🌍 世界观设定\n");
         prompt.append(worldTemplateProcessor.getWorldFoundation(context.getWorldType()));
         prompt.append("\n\n");
 
         // 第2层：角色定义（扩展为DM角色）
-        prompt.append("# 🎭 你的角色：地下城主（DM）\n");
+        prompt.append("🎭 你的角色：地下城主（DM）\n");
         prompt.append(worldTemplateProcessor.getDMCharacterDefinition(context.getWorldType()));
         prompt.append("\n\n");
 
         // 第3层：当前状态
-        prompt.append("# 📍 当前状态\n");
+        prompt.append("📍 当前状态\n");
         prompt.append(buildCurrentState(context));
         prompt.append("\n\n");
         
@@ -191,7 +187,7 @@ public class PromptBuilder implements PromptBuilderInterface {
 
         // 轮次与情节信息
         if (context.getTotalRounds() != null) {
-            prompt.append("# ⏱️ 轮次与情节\n");
+            prompt.append("⏱️ 轮次与情节\n");
             prompt.append("当前总轮数: ").append(context.getTotalRounds()).append("\n");
             if (context.getCurrentArcStartRound() != null) {
                 prompt.append("当前情节起始轮数: ").append(context.getCurrentArcStartRound()).append("\n");
@@ -206,35 +202,31 @@ public class PromptBuilder implements PromptBuilderInterface {
             prompt.append("\n");
         }
 
-        // 第4层：记忆上下文
-        String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
-        if (!memoryContext.isEmpty()) {
-            prompt.append("# 🧠 相关记忆\n");
-            prompt.append(memoryContext);
-            prompt.append("\n\n");
+        // 第4层：记忆上下文（使用简化的记忆上下文构建方法）
+        try {
+            String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
+            if (!memoryContext.isEmpty()) {
+                prompt.append("🧠 相关记忆\n");
+                prompt.append(memoryContext);
+                prompt.append("\n\n");
+            }
+        } catch (Exception e) {
+            logger.debug("获取记忆上下文失败: {}", e.getMessage());
         }
 
-        // 记忆管理指令
-        prompt.append("# 💭 记忆管理指令\n");
-        prompt.append(buildMemoryInstructions());
-        prompt.append("\n\n");
-
         // 第5层：行为准则（扩展为DM准则）
-        prompt.append("# ⚖️ DM行为准则\n");
+        prompt.append("⚖️ DM行为准则\n");
         prompt.append(buildDMGuidelines(context));
         prompt.append("\n\n");
 
-        // 第6层：技能集成
-        prompt.append("# 🛠️ 可用技能\n");
-        prompt.append(buildSkillInstructions());
 
         // 第7层：评估指令
-        prompt.append("\n\n# 🧠 行为评估指令\n");
+        prompt.append("\n\n🧠 行为评估指令\n");
         prompt.append(buildAssessmentInstructions(context.getCurrentMessage()));
         prompt.append("\n\n");
 
         // 第8层：收敛目标
-        prompt.append("# 🎯 收敛目标\n");
+        prompt.append("🎯 收敛目标\n");
         prompt.append(buildConvergenceGoals(context.getWorldType()));
 
         return prompt.toString();
@@ -405,51 +397,20 @@ public class PromptBuilder implements PromptBuilderInterface {
         }
     }
     
-    /**
-     * 构建记忆管理指令
-     */
-    private String buildMemoryInstructions() {
-        return """
-            ## 记忆更新规则
-            当你生成回复时，请注意以下记忆管理原则：
-
-            1. 重要信息识别：如果回复中包含重要的事件、角色关系变化、技能提升等信息，请在回复末尾添加记忆标记
-            2. 记忆标记格式：使用以下格式记录重要记忆：
-               - 角色关系变化：[MEMORY:CHARACTER:角色名:关系变化]
-               - 重要事件：[MEMORY:EVENT:事件描述]
-               - 世界状态变化：[MEMORY:WORLD:状态变化:原因]
-               - 技能学习：[MEMORY:SKILL:技能名:学习情况]
-
-            3. 记忆重要性：系统会自动评估记忆重要性，只有重要性>0.6的记忆会被保存
-
-            4. 记忆提取：如果回复中包含需要记忆的内容，请确保内容清晰、具体，便于后续检索
-
-            5. 情节管理（重要）：
-               - 五轮以内必须切换情节：同一情节中最多进行5轮交互，达到第5轮时必须切换到新情节或显著更新当前情节目标。
-               - 在每次回复末尾明确给出指令：
-                 - 更新情节：[ARC:SET:情节名称]
-                 - 保持情节：[ARC:KEEP]
-
-            示例：
-            如果你回复："你学会了火球术，这是一个强大的攻击技能。"
-            请在回复末尾添加：[MEMORY:SKILL:火球术:学会了基础火球术攻击技能]
-
-            """;
-    }
     
     /**
      * 构建行为准则
      */
     private String buildBehaviorRules(RoleplayContext context) {
         String commonRules = """
-            ## 🎯 核心原则
+            🎯 核心原则
             1. 沉浸式体验：始终保持角色扮演状态，用生动的描述创造沉浸感
             2. 积极响应：对玩家的每个行动都给予有意义的反馈
             3. 逻辑一致：确保世界规则和角色行为的一致性
             4. 鼓励探索：引导玩家发现新的可能性和机会
             5. 平衡挑战：提供适度的挑战，既不过于简单也不过于困难
             
-            ## 📝 回复格式
+            📝 回复格式
             - 使用生动的描述性语言
             - 适当使用表情符号增加趣味性
             - 在关键时刻询问玩家的选择
@@ -459,7 +420,7 @@ public class PromptBuilder implements PromptBuilderInterface {
         String worldSpecificRules = switch (context.getWorldType()) {
             case "fantasy_adventure" -> """
                 
-                ## ⚔️ 奇幻世界特殊规则
+                ⚔️ 奇幻世界特殊规则
                 - 魔法有其代价和限制
                 - 不同种族有各自的文化和特征
                 - 危险与机遇并存
@@ -468,7 +429,7 @@ public class PromptBuilder implements PromptBuilderInterface {
                 
             case "educational" -> """
                 
-                ## 📚 教育世界特殊规则
+                📚 教育世界特殊规则
                 - 每个挑战都应包含学习要素
                 - 错误是学习过程的一部分
                 - 提供多种解决问题的方法
@@ -477,7 +438,7 @@ public class PromptBuilder implements PromptBuilderInterface {
                 
             case "japanese_school" -> """
                 
-                ## 🌸 日本校园世界特殊规则
+                🌸 日本校园世界特殊规则
                 - 校园生活有其独特的节奏和传统
                 - 人际关系和友谊是重要主题
                 - 学习和成长是核心价值
@@ -495,21 +456,21 @@ public class PromptBuilder implements PromptBuilderInterface {
      */
     private String buildDMGuidelines(RoleplayContext context) {
         String commonRules = """
-            ## 🎯 核心原则
+            🎯 核心原则
             1. 用户完全自由：接受任何合理的用户行为，不限制玩家选择
             2. 智能评估：基于世界规则评估用户行为的合理性
             3. 动态调整：根据评估结果调整场景发展和世界状态
             4. 积极收敛：主动推进剧情，避免原地打转，引导向收敛点
             5. 一致性维护：确保世界规则和故事逻辑的一致性
 
-            ## 🚀 剧情推进原则（重要）
+            🚀 剧情推进原则（重要）
             - 主动推进：每次回复都要推进剧情，避免重复描述同一场景
             - 引入变化：主动引入新的事件、角色或环境变化
             - 创造转折：适时创造剧情转折点，保持故事新鲜感
             - 时间流动：让时间在故事中自然流动，避免时间停滞
             - 目标导向：始终朝着故事目标或收敛点推进
 
-            ## ⚔️ 角色成长与挑战设计（关键）
+            ⚔️ 角色成长与挑战设计（关键）
             - 动态升级：当经验值达到升级要求时，必须立即升级并提升属性
             - 挑战平衡：根据角色等级设计相应难度的挑战，确保既有挑战性又有成就感
             - 属性应用：让角色的力量、敏捷、智力、体质在冒险中发挥实际作用
@@ -517,7 +478,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             - 技能获得：通过冒险、学习、训练等方式获得新技能和能力
             - 装备影响：让装备和物品对角色属性产生实际影响
 
-            ## ⏰ 强制场景切换规则（关键）
+            ⏰ 强制场景切换规则（关键）
             - 五轮限制：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务
             - 场景切换触发：当对话轮数达到5轮时，必须主动引入以下变化之一：
               * 场景转换：移动到新地点、新环境
@@ -526,216 +487,69 @@ public class PromptBuilder implements PromptBuilderInterface {
               * 时间跳跃：时间推进到下一阶段（白天/夜晚、季节变化等）
             - 强制执行：无论当前对话内容如何，都必须遵守5轮限制规则
 
-            ## 🧠 评估标准
+            🧠 评估标准
             - 合理性（0-1）：行为是否符合世界物理规则和逻辑
             - 一致性（0-1）：行为是否与当前故事上下文一致
             - 推进度（0-1）：行为对故事收敛的贡献程度
 
-            ## ⚖️ 响应策略
+            ⚖️ 响应策略
             - 0.8-1.0 (ACCEPT)：完全接受用户行为，正常推进故事
             - 0.6-0.8 (ADJUST)：部分接受，调整影响程度，同时推进剧情
             - 0.0-0.6 (CORRECT)：引导修正，建议替代方案，并推进剧情
             
-            ## 🏗️ 结构化输出格式（用于复杂信息）
+            🏗️ 结构化输出格式（用于复杂信息）
             评估格式如下：
-            §{"ruleCompliance": 0.95, "contextConsistency": 0.90, "convergenceProgress": 0.70, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "简要说明", "suggestedActions": ["建议1", "建议2"], "convergenceHints": ["提示1", "提示2"], "questUpdates": {"completed": [{"questId": "quest_001", "rewards": {"exp": 100, "gold": 50, "items": ["铁剑x1"]}}], "progress": [{"questId": "quest_002", "progress": "2/5"}], "expired": [{"questId": "quest_003", "reason": "剧情推进导致任务失效"}]}}§
+            §{"ruleCompliance": 0.95, "contextConsistency": 0.90, "convergenceProgress": 0.70, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "简要说明", "suggestedActions": ["建议1", "建议2"], "convergenceHints": ["提示1", "提示2"], "questUpdates": {"completed": [{"questId": "quest_001", "rewards": {"exp": 100, "gold": 50, "items": ["铁剑x1"]}}], "progress": [{"questId": "quest_002", "progress": "2/5"}], "expired": [{"questId": "quest_003", "reason": "剧情推进导致任务失效"}]}, "memoryUpdates": [{"type": "EVENT", "content": "主角学会了火球术", "importance": 0.8}, {"type": "CHARACTER", "content": "与精灵王艾伦多建立了友好关系", "importance": 0.7}], "arcUpdates": {"currentArcName": "新情节名称", "currentArcStartRound": 5, "totalRounds": 10}}§
+            
+            ⚠️ 重要提醒：rewards中的items字段只应包含本次任务完成获得的新物品，不要包含角色已有的物品！
             当需要显示详细的游戏信息时，请使用以下标记格式来组织内容：
             
-            \\*DIALOGUE:
-            你的角色对话和叙述内容，生动描述场景和互动：
+            [DIALOGUE]
+            你的角色对话和叙述内容，使用分号分隔的结构化格式：
             
-            🧙‍♂️ *我轻轻挥动法杖，一道淡金色的魔法符文在空中浮现*
+            场景描述：你站在一座古老警局的台阶前，锈迹斑斑的铁门在微风中轻轻摇晃。空气中弥漫着潮湿的尘埃与旧纸张的气息，远处传来钟楼的滴答声，仿佛在倒数着某个即将揭晓的秘密; 角色动作：你的手不自觉地按在腰间的配枪上，指尖触到冰冷的金属——这是你作为警探的第一天; NPC对话："Inspector Panzijian..." 一个沙哑的声音从阴影中传来，"欢迎来到'雾都案卷馆'。这里每一份档案都藏着一条命案的影子，而今晚，有一具尸体正在等你去发现。"; 环境变化：突然，警局大厅的灯闪烁了一下，一束惨白的光线照在墙上的老式挂钟上——时间停在了凌晨3:17; 声音效果：你听见走廊深处传来一声重物坠地的闷响，紧接着，是锁链拖地的声音……; NPC低语："有人在下面。"那声音低语道，"但没人能活着上来。"
             
-            "年轻的冒险者，欢迎来到这个充满奇迹的世界！我看到你眼中的好奇和勇气，这正是探索未知所需要的品质。"
+            重要：使用分号(;)、中文分号(；)、全角分号(；)分隔不同的对话模块，每个模块使用 标签名： 的格式。
+            [/DIALOGUE]
             
-            *周围的古老石柱开始发出微弱的光芒，仿佛在回应着你的到来*
-            
-            "告诉我，你准备好开始这场冒险了吗？"
-            */
-            
-            \\*STATUS:
-            角色状态信息，使用清晰的键值对格式：
-等级: 1
-经验值: 150/300
-生命值: 85/100
-魔力值: 40/50
-金币: 125
-装备: 新手法杖、布衣
-物品: 生命药水x3、魔法卷轴x1
-技能: 火球术Lv1、治疗术Lv1
-属性: 力量12 敏捷10 智力15 体质11
-            */
-            
-            \\*WORLD:
+            [WORLD]
             世界状态信息，生动描述当前环境：
-📍 当前位置: 神秘森林深处的古老石圈
-🌅 时间: 黄昏时分，夕阳西下
-🌤️ 天气: 微风轻拂，空气中弥漫着魔法气息
-🔮 环境: 古老的符文石柱环绕四周，地面上刻着发光的法阵
-👥 NPC: 守护精灵艾莉娅正在石圈中央等待
-⚡ 特殊事件: 远处传来神秘的咏唱声，法阵开始微微发光
-            */
+            📍 当前位置: 神秘森林深处的古老石圈
+            🌅 时间: 黄昏时分，夕阳西下
+            🌤️ 天气: 微风轻拂，空气中弥漫着魔法气息
+            🔮 环境: 古老的符文石柱环绕四周，地面上刻着发光的法阵
+            👥 NPC: 守护精灵艾莉娅正在石圈中央等待
+            ⚡ 特殊事件: 远处传来神秘的咏唱声，法阵开始微微发光
+            [/WORLD]
             
-            \\*QUESTS
+            [QUESTS]
             1. 探索神秘森林：深入森林寻找失落的魔法水晶，进度2/5个水晶碎片已收集（奖励：经验值200、金币100、魔法护符）; 2. 拯救村民：从哥布林手中救出被困村民，已救出3人，还有2人被困（奖励：经验值150、金币50、村民感谢信）
-            */
+            [/QUESTS]
             
-            \\*CHOICES:
+            [CHOICES]
             为玩家提供的行动选择，必须使用分号(;)分隔每个选择项：
             1. 调查古老石圈 - 仔细检查符文石柱，可能发现隐藏的魔法秘密; 2. 与守护精灵对话 - 向艾莉娅询问关于失落水晶的线索; 3. 搜索周围区域 - 在森林中寻找可能的线索或隐藏物品; 4. 使用魔法感知 - 消耗魔力值感知周围的魔法波动; 5. 自由行动 - 描述你想要进行的其他行动
-            */
+            [/CHOICES]
             
 重要：请确保结构化格式的完整性，不要遗漏任何字段。特别是结尾和开头约定
             """;
 
         String worldSpecificRules = switch (context.getWorldType()) {
             case "fantasy_adventure" ->
-                "\n## ⚔️ 奇幻世界特殊规则\n- 魔法有其代价和限制\n- 不同种族有各自的文化和特征\n- 危险与机遇并存\n- 英雄主义精神是核心主题\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
+                "\n⚔️ 奇幻世界特殊规则\n- 魔法有其代价和限制\n- 不同种族有各自的文化和特征\n- 危险与机遇并存\n- 英雄主义精神是核心主题\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
 
             case "educational" ->
-                "\n## 📚 教育世界特殊规则\n- 每个挑战都应包含学习要素\n- 错误是学习过程的一部分\n- 提供多种解决问题的方法\n- 定期总结和强化学习成果\n- 强制场景切换：在同一个学习场景中最多进行5轮对话，第5轮后必须强制切换学习场景或更新学习任务";
+                "\n📚 教育世界特殊规则\n- 每个挑战都应包含学习要素\n- 错误是学习过程的一部分\n- 提供多种解决问题的方法\n- 定期总结和强化学习成果\n- 强制场景切换：在同一个学习场景中最多进行5轮对话，第5轮后必须强制切换学习场景或更新学习任务";
 
             case "japanese_school" ->
-                "\n## 🌸 日本校园世界特殊规则\n- 校园生活有其独特的节奏和传统\n- 人际关系和友谊是重要主题\n- 学习和成长是核心价值\n- 青春和梦想是永恒主题\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
+                "\n🌸 日本校园世界特殊规则\n- 校园生活有其独特的节奏和传统\n- 人际关系和友谊是重要主题\n- 学习和成长是核心价值\n- 青春和梦想是永恒主题\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
 
-            default -> "\n## 🌍 通用世界特殊规则\n- 保持世界规则的一致性\n- 尊重玩家的选择和创意\n- 平衡挑战与趣味性\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
+            default -> "\n🌍 通用世界特殊规则\n- 保持世界规则的一致性\n- 尊重玩家的选择和创意\n- 平衡挑战与趣味性\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
         };
 
         return commonRules + worldSpecificRules;
     }
     
-    /**
-     * 构建技能指令说明
-     */
-    private String buildSkillInstructions() {
-        return """
-            ## 🎲 骰子系统 - 随机性判定
-使用时机：当需要进行随机性判定、技能检定、战斗伤害等不确定性结果时使用
-
-格式：`[DICE:骰子类型+修正值:检定描述]`
-            - 骰子类型：d20（二十面骰）、d6（六面骰）、d8、d10、d12等
-            - 修正值：可选的数值修正（如+5、-2），可以省略
-            - 检定描述：对这次检定的简要说明
-
-使用示例：
-            - `[DICE:d20+3:感知检定]` - 进行感知检定，+3修正
-            - `[DICE:d6:伤害掷骰]` - 造成伤害的掷骰
-            - `[DICE:d20:攻击检定]` - 攻击目标的检定
-            - `[DICE:d100:随机事件]` - 百分比随机事件
-
-世界特定用法：
-            - 奇幻世界：用于战斗、魔法施放、技能检定
-            - 校园世界：用于考试、体育活动、随机事件
-            - 教育世界：用于学习挑战、知识竞赛
-
-            ## 📋 任务系统 - 剧情推进工具
-使用时机：当需要创建、更新或完成任务时使用，特别是在剧情发展、玩家达成目标时
-
-创建任务：`[QUEST:CREATE:任务标题:任务描述]`
-            - 在玩家获得新目标或系统需要安排新任务时使用
-            - 任务标题要简洁明确，描述要详细说明目标和奖励
-
-更新任务：`[QUEST:UPDATE:任务ID:进度更新描述]`
-            - 当玩家在执行任务过程中取得进展时使用
-            - 任务ID由系统生成，进度描述要具体
-
-完成任务：`[QUEST:COMPLETE:任务ID:完成情况描述]`
-            - 当玩家达成任务目标时使用
-            - 描述要说明完成的具体情况和奖励发放
-
-使用示例：
-            ```
-            [QUEST:CREATE:探索神秘森林:深入森林寻找失落的魔法水晶，进度0/5个水晶碎片已收集（奖励：经验值200、金币100、魔法护符）]
-            [QUEST:UPDATE:quest_001:已找到2个水晶碎片，进度2/5]
-            [QUEST:COMPLETE:quest_001:成功收集了所有5个水晶碎片，获得了森林守护者的认可]
-            ```
-
-            ## 🎯 学习挑战系统 - 教育世界专用
-使用时机：在教育世界中，当需要进行知识检定、学习挑战时使用
-
-数学挑战：`[CHALLENGE:MATH:难度级别:具体题目]`
-            - 难度级别：简单、普通、困难、专家
-            - 题目要具体明确，便于验证答案
-
-历史挑战：`[CHALLENGE:HISTORY:历史时期:问题内容]`
-            - 历史时期：古代、中世纪、近代、现代等
-            - 问题要基于历史事实
-
-语言挑战：`[CHALLENGE:LANGUAGE:语言类型:学习内容]`
-            - 语言类型：词汇、语法、阅读理解、写作等
-            - 内容要适合学习目标
-
-使用示例：
-            ```
-            [CHALLENGE:MATH:普通:请计算：∫(2x+1)dx 在 [0,1] 区间上的定积分结果是多少？]
-            [CHALLENGE:HISTORY:古代中国:秦始皇统一六国是在哪一年？]
-            [CHALLENGE:LANGUAGE:词汇:请解释"宵衣旰食"这个成语的含义和出处]
-            ```
-
-            ## 💾 状态更新系统 - 实时信息同步
-使用时机：当游戏状态发生变化，需要更新玩家信息时使用
-
-位置更新：`[STATE:LOCATION:新位置描述]`
-            - 当玩家移动到新地点时使用
-            - 描述要生动详细，便于环境渲染
-
-物品更新：`[STATE:INVENTORY:物品变化描述]`
-            - 当玩家获得、失去或使用物品时使用
-            - 描述要说明物品的具体变化
-
-关系更新：`[STATE:RELATIONSHIP:NPC姓名:关系变化描述]`
-            - 当玩家与NPC的关系发生变化时使用
-            - 描述要说明关系变化的具体情况
-
-情绪更新：`[STATE:EMOTION:情绪类型:触发原因]`
-            - 当玩家或NPC的情绪状态发生变化时使用
-            - 情绪类型：快乐、悲伤、愤怒、恐惧、惊讶等
-
-使用示例：
-            ```
-            [STATE:LOCATION:进入神秘的精灵森林，周围环绕着高大的古树，空气中弥漫着魔法气息]
-            [STATE:INVENTORY:获得了魔法水晶x1，经验值+50]
-            [STATE:RELATIONSHIP:精灵王艾伦多:与主角的关系提升为友好，信任度+25]
-            [STATE:EMOTION:惊讶:发现隐藏的宝藏，情绪转为兴奋]
-            ```
-
-            ## 🎭 特殊指令系统 - 高级功能
-使用时机：当需要记录重要信息、发展角色或扩展世界时使用
-
-记录重要事件：`[MEMORY:EVENT:事件详细描述]`
-            - 当发生对剧情发展有重要影响的事件时使用
-            - 描述要详细具体，便于后续剧情发展
-            - 重要性高的记忆会被系统长期保存
-
-角色发展：`[CHARACTER:DEVELOPMENT:发展内容描述]`
-            - 当角色获得新技能、提升等级或改变性格时使用
-            - 描述要说明发展的具体内容和影响
-
-世界扩展：`[WORLD:EXPAND:新内容详细描述]`
-            - 当需要引入新地点、新NPC、新情节时使用
-            - 描述要详细说明新增内容的特点和作用
-
-使用示例：
-            ```
-            [MEMORY:EVENT:主角与精灵王艾伦多结盟，共同对抗黑暗势力的阴谋，这段友谊将影响未来的冒险旅程]
-            [CHARACTER:DEVELOPMENT:通过不断练习，主角的剑术达到了新的境界，学会了"疾风剑法"这一强大技能]
-            [WORLD:EXPAND:发现了隐藏的地下城，里面居住着古代矮人文明的遗民，他们守护着失落的工艺技术]
-            ```
-
-            ## 📊 指令使用策略
-            - 适时使用：不要过度使用指令，只在必要时使用
-            - 精确描述：指令参数要准确、描述要清晰
-            - 逻辑一致：确保指令内容与当前剧情逻辑一致
-            - 系统配合：这些指令会被后端系统自动处理和验证
-
-            **指令执行优先级**：
-            1. 状态更新指令（立即生效）
-            2. 任务相关指令（影响剧情进程）
-            3. 学习挑战指令（教育世界专用）
-            4. 特殊指令（影响长期发展）
-            5. 骰子指令（产生随机结果）
-            """;
-    }
 
     /**
      * 构建评估指令
@@ -771,37 +585,6 @@ public class PromptBuilder implements PromptBuilderInterface {
               * 时间跳跃：时间推进到下一阶段
             - 强制执行：这是硬性要求，不可违反，无论当前对话内容如何
 
-            ### 输出要求（务必严格遵守）
-重要：必须严格按照以下格式输出，不要添加任何额外内容
-            你的回复必须完全按照以下结构组织，每个标记块之间必须有换行符分隔：
-
-            \\*DIALOGUE:
-            你的角色对话和叙述内容，生动描述场景和互动
-            */
-
-
-            \\*WORLD:
-            世界状态信息，生动描述当前环境
-            */
-
-            \\*QUESTS
-            任务信息，使用分号分隔的任务列表格式：1. 任务标题：描述，进度（奖励：...）; 2. 任务标题：描述，进度（奖励：...）
-            */
-
-            \\*CHOICES:
-            为玩家提供的行动选择，必须使用分号(;)分隔每个选择项
-            */
-
-            §{"ruleCompliance": 0.95, "contextConsistency": 0.90, "convergenceProgress": 0.70, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "简要说明", "suggestedActions": ["建议1", "建议2"], "convergenceHints": ["提示1", "提示2"], "questUpdates": {"created": [{"questId": "quest_new_001", "title": "新任务标题", "description": "任务描述", "rewards": {"exp": 50, "gold": 25}}], "completed": [{"questId": "quest_001", "rewards": {"exp": 100, "gold": 50, "items": ["铁剑x1"]}}], "progress": [{"questId": "quest_002", "progress": "2/5"}], "expired": [{"questId": "quest_003", "reason": "剧情推进导致任务失效"}]}, "worldStateUpdates": {"currentLocation": "新位置", "environment": "环境变化", "npcs": [{"name": "NPC名称", "status": "状态变化"}]}, "skillsStateUpdates": {"level": 2, "experience": 50, "gold": 75, "inventory": ["新物品"], "abilities": ["新技能"], "stats": {"力量": 10, "敏捷": 12, "智力": 14, "体质": 11}}, "diceRolls": [{"diceType": 20, "modifier": 3, "context": "感知检定", "result": 15, "isSuccessful": true}], "learningChallenges": [{"type": "MATH", "difficulty": "普通", "question": "计算2+2等于几？", "answer": "4", "isCorrect": true}], "stateUpdates": [{"type": "LOCATION", "value": "进入图书馆，书香气息扑面而来"}, {"type": "INVENTORY", "value": "获得了魔法书x1，智力+5"}], "arcUpdates": {"currentArcName": "新情节名称", "currentArcStartRound": 5, "totalRounds": 10}, "convergenceStatusUpdates": {"progress": 0.75, "nearestScenarioId": "story_convergence_2", "nearestScenarioTitle": "远古神庙", "distanceToNearest": 0.3, "scenarioProgress": {"story_convergence_1": 1.0, "story_convergence_2": 0.75, "main_convergence": 0.2}, "activeHints": ["寻找神庙入口", "收集古代符文"]}}§
-
-格式检查清单（输出前必须确认）：
-            1. ✅ DIALOGUE块以`*/`结尾
-            2. ✅ STATUS块以`*/`结尾  
-            3. ✅ WORLD块以`*/`结尾
-            4. ✅ QUESTS块以`*/`结尾
-            5. ✅ CHOICES块以`*/`结尾
-            6. ✅ 每个标记块之间都有空行分隔
-            7. ✅ 评估JSON用§包裹，放在最后
 
             ## 🎯 游戏逻辑整合到评估JSON
 重要：所有游戏逻辑现在都通过评估JSON中的专门字段来处理，不再使用指令标记
@@ -854,76 +637,83 @@ public class PromptBuilder implements PromptBuilderInterface {
             ### 世界状态更新 - worldStateUpdates字段
             世界状态变化通过worldStateUpdates字段处理
 
-            ### 技能状态更新 - skillsStateUpdates字段  
-            角色技能状态变化通过skillsStateUpdates字段处理
+            ### 记忆更新 - memoryUpdates字段
+            重要记忆信息通过memoryUpdates字段处理，包含：
+            - type: 记忆类型（EVENT、CHARACTER、WORLD、SKILL等）
+            - content: 记忆内容描述
+            - importance: 重要性评分（0-1），系统会自动评估，只有重要性>0.6的记忆会被保存
+            - 记忆类型说明：
+              * EVENT: 重要事件，如"主角学会了火球术"
+              * CHARACTER: 角色关系变化，如"与精灵王艾伦多建立了友好关系"
+              * WORLD: 世界状态变化，如"发现了隐藏的古代遗迹"
+              * SKILL: 技能学习，如"学会了基础剑术"
 
 
-            • 特殊指令：记录重要剧情发展：
-              - 重要事件：`[MEMORY:EVENT:主角解开了千年谜题，获得了智慧之石]`
-              - 角色成长：`[CHARACTER:DEVELOPMENT:通过学习，主角的知识水平显著提升]`
-              - 世界扩展：`[WORLD:EXPAND:发现了隐藏的古代遗迹，里面有未知的文明痕迹]`
-              - 技能获得：`[CHARACTER:DEVELOPMENT:学会了新的剑术技能"疾风剑法"]`
 
-指令使用原则：
-            1. 适时使用：不要在每个回复中都使用指令，只在剧情需要时使用
-            2. 准确描述：确保指令参数准确，描述清晰明确
-            3. 逻辑一致：指令内容必须与当前剧情和世界规则保持一致
-            4. 优先级排序：状态更新 > 任务管理 > 学习挑战 > 特殊指令 > 随机事件
+JSON字段使用原则：
+            1. 适时使用：不要在每个回复中都包含所有字段，只在需要时使用
+            2. 准确描述：确保字段内容准确，描述清晰明确
+            3. 逻辑一致：字段内容必须与当前剧情和世界规则保持一致
+            4. 优先级排序：任务更新 > 世界状态更新 > 记忆更新 > 其他字段
              
 详细格式要求和示例：
 
-            \\*DIALOGUE:
-            你的角色对话和叙述内容，使用生动的描述性语言：
-            🌸 *阳光透过教室的窗户洒在木质课桌上，你坐在靠窗的位置，轻轻整理着新发的校服*
-            "啊，转学第一天就遇到这么温暖的校园氛围呢！"你微笑着环顾四周，看到走廊上三三两两的学生们正在交谈，远处传来篮球场上的欢呼声。
-            *班主任山田老师走进教室，微笑着向你点头示意*
-            "主角同学，今天是你的第一天，好好享受高中生活吧！有什么问题随时可以找我。"
-            *窗外樱花树随风轻摆，仿佛在欢迎你的到来*
-            */
-
-            \\*STATUS:
-            角色状态信息，使用分号分隔的键值对格式（必须使用上面"当前状态"部分提供的实际技能状态数据，字段映射：level→等级, experience→经验值, gold→金币, inventory→物品, stats→属性, abilities→技能）：
-等级: 1; 经验值: 0/100; 生命值: 100/100; 魔力值: 50/50; 金币: 0; 装备: 校服、书包; 物品: 教科书x3、笔记本x2、铅笔盒; 技能: 无; 属性: 力量8 敏捷10 智力12 体质9
-            */
-
-            \\*WORLD:
+            [DIALOGUE]
+            你的角色对话和叙述内容，使用分号分隔的结构化格式：
+            
+            # 环境描述：# 🌸 阳光透过教室的窗户洒在木质课桌上，你坐在靠窗的位置，轻轻整理着新发的校服; # 角色内心独白：# "啊，转学第一天就遇到这么温暖的校园氛围呢！"你微笑着环顾四周，看到走廊上三三两两的学生们正在交谈，远处传来篮球场上的欢呼声; # NPC登场：# 班主任山田老师走进教室，微笑着向你点头示意; # NPC对话：# "主角同学，今天是你的第一天，好好享受高中生活吧！有什么问题随时可以找我。"; # 环境氛围：# 窗外樱花树随风轻摆，仿佛在欢迎你的到来
+            [/DIALOGUE]
+            
+            [WORLD]
             世界状态信息，使用分号分隔的键值对格式：
-📍 当前位置: 清水高中1年A班教室; 🌅 时间: 上午9:00，开学第一天; 🌤️ 天气: 晴朗，微风，樱花飘落; 📚 环境: 教室整洁明亮，黑板上写着"欢迎新同学"，同学们正在互相认识; 👥 NPC: 山田老师（班主任）：温和亲切，正在观察新同学 | 小林美咲（同桌）：活泼开朗，正对你微笑 | 佐藤健太（前排男生）：篮球社成员，正在和朋友讨论下午的训练; ⚡ 特殊事件: 校园祭筹备委员会正在招募新成员，公告栏上有醒目海报
-            */
+📍 当前位置: 清水高中1年A班教室; 🌅 时间: 上午9:00，开学第一天; 🌤️ 天气: 晴朗，微风，樱花飘落; 📚 环境: 教室整洁明亮，黑板上写着"欢迎新同学"，同学们正在互相认识; 👥 NPC: 山田老师（班主任）：温和亲切，正在观察新同学 ； 小林美咲（同桌）：活泼开朗，正对你微笑 ；佐藤健太（前排男生）：篮球社成员，正在和朋友讨论下午的训练; ⚡ 特殊事件: 校园祭筹备委员会正在招募新成员，公告栏上有醒目海报
+            [/WORLD]
 
-            \\*QUESTS:
+            [QUESTS]
             任务信息，使用分号分隔的任务列表格式：
             1. 适应新环境：在开学第一天结识至少一位新朋友，进度0/1（奖励：经验值50、友情点数+1）; 2. 探索校园：参观至少三个不同的校园地点，进度0/3（奖励：经验值30、校园地图x1）; 3. 加入社团：选择并加入一个感兴趣的社团，进度0/1（奖励：经验值100、社团徽章x1）
-            */
+            [/QUESTS]
 
-            \\*CHOICES:
+            [CHOICES]
             行动选择，必须使用分号(;)分隔每个选择项，格式为：数字. 标题 - 描述：
             1. 与同桌小林美咲打招呼 - 开始建立第一段校园友谊; 2. 查看校园祭海报 - 了解即将到来的重要活动; 3. 参观学校设施 - 去图书馆、体育馆或实验室看看; 4. 询问班主任关于社团信息 - 获取更多社团选择; 5. 自由行动 - 描述你想进行的其他活动
-            */
+            [/CHOICES]
 
-            §{"ruleCompliance": 0.95, "contextConsistency": 0.90, "convergenceProgress": 0.70, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "查看状态是合理行为，有助于玩家了解当前处境", "suggestedActions": ["与同桌建立联系", "探索校园环境", "考虑加入社团"], "convergenceHints": ["友情发展是重要主题", "社团活动是成长关键"], "questUpdates": {"created": [{"questId": "quest_001", "title": "适应新环境", "description": "在开学第一天结识至少一位新朋友", "rewards": {"exp":50, "items": ["友情点数+1"]}}], "completed": [], "progress": [], "expired": []}, "worldStateUpdates": {"currentLocation": "清水高中1年A班教室", "environment": "晴朗，樱花飘落，开学第一天氛围", "npcs": [{"name": "山田老师", "status": "正在观察新同学"}, {"name": "小林美咲", "status": "对主角微笑"}, {"name": "佐藤健太", "status": "讨论篮球训练"}]}, "skillsStateUpdates": {"level":1, "experience":0, "gold":0, "inventory": ["校服", "书包", "教科书x3", "笔记本x2", "铅笔盒"], "abilities": [], "stats": {"力量":8, "敏捷":10, "智力":12, "体质":9}}, "arcUpdates": {"currentArcName": "开学第一天", "currentArcStartRound": 1, "totalRounds": 1}, "convergenceStatusUpdates": {"progress": 0.1, "nearestScenarioId": "story_convergence_1", "nearestScenarioTitle": "转校生的到来", "distanceToNearest": 0.8, "scenarioProgress": {"story_convergence_1": 0.1, "story_convergence_2": 0.0, "main_convergence": 0.0}, "activeHints": ["适应新环境", "建立人际关系"]}}§
+            §{"ruleCompliance": 0.95, "contextConsistency": 0.90, "convergenceProgress": 0.70, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "查看状态是合理行为，有助于玩家了解当前处境", "suggestedActions": ["与同桌建立联系", "探索校园环境", "考虑加入社团"], "convergenceHints": ["友情发展是重要主题", "社团活动是成长关键"], "questUpdates": {"created": [{"questId": "quest_001", "title": "适应新环境", "description": "在开学第一天结识至少一位新朋友", "rewards": {"exp":50, "items": ["友情点数+1"]}}], "completed": [], "progress": [], "expired": []}, "worldStateUpdates": {"currentLocation": "清水高中1年A班教室", "environment": "晴朗，樱花飘落，开学第一天氛围", "npcs": [{"name": "山田老师", "status": "正在观察新同学"}, {"name": "小林美咲", "status": "对主角微笑"}, {"name": "佐藤健太", "status": "讨论篮球训练"}]}, "memoryUpdates": [{"type": "EVENT", "content": "转学第一天，来到清水高中", "importance": 0.6}, {"type": "CHARACTER", "content": "与同桌小林美咲初次见面", "importance": 0.5}], "arcUpdates": {"currentArcName": "开学第一天", "currentArcStartRound": 1, "totalRounds": 1}, "convergenceStatusUpdates": {"progress": 0.1, "nearestScenarioId": "story_convergence_1", "nearestScenarioTitle": "转校生的到来", "distanceToNearest": 0.8, "scenarioProgress": {"story_convergence_1": 0.1, "story_convergence_2": 0.0, "main_convergence": 0.0}, "activeHints": ["适应新环境", "建立人际关系"]}}§
              
 关键格式要求：
-            1. 必须使用\\*DIALOGUE: */、\\*WORLD: */、\\*QUESTS */、\\*CHOICES: */标记
+            1. 必须使用[DIALOGUE][/DIALOGUE]、[WORLD][/WORLD]、[QUESTS][/QUESTS]、[CHOICES][/CHOICES]标记
             2. 评估JSON必须用§包裹，放在最后
             3. 不要在标记外添加任何额外文本
             4. 每个标记块的内容要完整且有意义
             5. 每个标记块之间必须有换行符分隔，这是硬性要求
-            6. 标记必须严格按照\\*标记名: 内容 */的格式
+            6. 标记必须严格按照[标记名]内容[/标记名]的格式
             7. 不要在标记内容中包含其他标记
             8. 评估JSON必须是有效的JSON格式，不能包含其他文本
             9. QUESTS块必须使用分号(;)分隔每个任务项，这是硬性要求
             10. CHOICES块必须使用分号(;)分隔每个选择项，这是硬性要求
             11. 标记块之间不能有任何内容连接，必须完全分离
-            12. 每个标记块都必须以`*/`结尾，不能省略
+            12. 每个标记块都必须以[/标记名]结尾，不能省略
             13. 输出前必须检查所有标记块是否完整闭合
 各标记块详细格式说明：
 
             • DIALOGUE块：
               - 包含角色对话、叙述描述和场景描写
-              - 支持markdown格式：*斜体*、粗体、"引号对话"
+              - 使用分号分隔的结构化格式：# 标签名：# 内容; # 标签名：# 内容; # 标签名：# 内容
+              - 支持多种分号：英文分号(;)、中文分号(；)、全角分号(；)
+              - 支持markdown格式：# 强调内容#、"引号对话"
               - 可以包含表情符号和动作描写
               - 内容应该生动有趣，便于前端渲染
+              - 结构化标签说明：
+                # 场景描述：# - 描述当前环境和背景
+                # 角色动作：# - 描述玩家角色的行为
+                # NPC对话：# - NPC的对话内容
+                # 环境变化：# - 环境状态的改变
+                # 声音效果：# - 听觉描述
+                # 角色内心独白：# - 角色的心理活动
+                # NPC登场：# - NPC的出现和介绍
+                # 环境氛围：# - 整体氛围和感觉
+              - 重要：必须使用分号分隔不同的对话模块，这是硬性格式要求
 
 
             • WORLD块：
@@ -938,7 +728,11 @@ public class PromptBuilder implements PromptBuilderInterface {
               - 任务格式：数字. 标题：描述，进度当前/目标（奖励：...）; 数字. 标题：描述，进度当前/目标（奖励：...）
               - 每个任务项之间必须用分号(;)分隔，不能使用换行符或其他分隔符
               - 任务描述要清晰，包含标题、描述、进度和奖励信息
+              - ⚠️ 重要：QUESTS块只应显示当前活跃的任务，已完成的任务必须从列表中移除
+              - ⚠️ 任务完成判断：当任务进度达到目标时（如进度1/1），该任务已完成，不应再出现在QUESTS块中
+              - ⚠️ 任务状态同步：QUESTS块的内容必须与questUpdates中的任务状态保持一致
               - 错误示例：使用换行符分隔任务项（❌）
+              - 错误示例：显示已完成的任务（❌）
               - 正确示例：1. 适应新环境：在开学第一天结识至少一位新朋友，进度0/1（奖励：经验值50、友情点数+1）; 2. 探索校园：参观至少三个不同的校园地点，进度0/3（奖励：经验值30、校园地图x1）; 3. 加入社团：选择并加入一个感兴趣的社团，进度0/1（奖励：经验值100、社团徽章x1）（✅）
 
             • CHOICES块：
@@ -966,15 +760,12 @@ public class PromptBuilder implements PromptBuilderInterface {
               * 剧情推进：故事发展导致任务目标不再相关或不可达成
               * 用户选择：玩家的选择导致任务路径被阻断
               * 逻辑冲突：任务与当前世界状态或剧情逻辑产生冲突
+            - ⚠️ 关键要求：QUESTS块与questUpdates必须保持同步
+              * 如果questUpdates中包含completed任务，这些任务必须从QUESTS块中移除
+              * 如果questUpdates中包含progress更新，QUESTS块中的进度必须相应更新
+              * 如果questUpdates中包含created任务，这些任务必须添加到QUESTS块中
+              * QUESTS块只应显示当前活跃的、未完成的任务
 
-            ### 🎁 任务奖励同步要求（关键）
-重要：任务奖励必须立即反映到角色状态更新中            - 当任务完成时，所有奖励（经验值、金币、物品）必须同步更新到skillsStateUpdates字段
-            - 经验值奖励：直接累加到当前经验值，如果达到升级要求则立即升级
-            - 金币奖励：直接累加到当前金币数量
-            - 物品奖励：添加到inventory列表中，格式为"物品名x数量"
-            - 属性奖励：如果有属性点奖励，必须更新到stats字段
-            - 技能奖励：如果有新技能获得，必须添加到abilities列表
-            - 同步原则：任务奖励和角色状态更新必须在同一次回复中完成，不能延迟
             
             ### 任务更新格式说明
             - questUpdates字段用于记录任务状态变化，包含四个子字段：
@@ -983,8 +774,16 @@ public class PromptBuilder implements PromptBuilderInterface {
               - progress: 进度更新的任务数组，每个任务包含questId和progress（格式："当前/目标"）
               - expired: 已过期的任务数组，每个任务包含questId和reason（过期原因）
             - rewards格式：{"exp": 数值, "gold": 数值, "items": ["物品名x数量", ...]}
+            - 重要：items字段只应包含本次任务完成获得的新物品，不要包含角色已有的物品
+            - 示例：如果角色已有"警徽x2"，本次任务又获得"警徽x1"，则items中应只写["警徽x1"]，系统会自动合并为"警徽x3"
             - 只有在任务状态确实发生变化时才包含questUpdates字段
             - 重要：请仔细评估所有活跃任务，将过期的任务标记为expired，避免任务无限累积
+            - ⚠️ 关键同步要求：QUESTS块必须与questUpdates保持完全同步
+              * 已完成的任务（completed）必须从QUESTS块中完全移除
+              * 新创建的任务（created）必须添加到QUESTS块中
+              * 进度更新的任务（progress）必须在QUESTS块中更新进度
+              * 过期的任务（expired）必须从QUESTS块中移除
+              * 确保QUESTS块只显示当前活跃的、未完成的任务
 
             ### 世界状态更新说明
             - worldStateUpdates字段用于记录世界状态的变化，包含：
@@ -994,73 +793,15 @@ public class PromptBuilder implements PromptBuilderInterface {
               - worldEvents: 世界事件数组
               - factions: 势力关系变化
               - locations: 地点状态变化
-            
-            ### 技能状态更新说明
-            - skillsStateUpdates字段用于记录角色技能状态的变化，包含：
-              - level: 角色等级变化
-              - experience: 经验值变化
-              - gold: 金币变化
-              - inventory: 物品清单变化
-              - abilities: 技能/能力变化
-              - stats: 属性变化（力量、敏捷、智力等）
-              - relationships: 人际关系变化
-
-重要同步要求：
-            - 当任务完成获得奖励时，必须立即在skillsStateUpdates中反映所有奖励
-            - 经验值：累加到当前经验值，如果达到升级要求则同时更新level
-            - 金币：累加到当前金币数量
-            - 物品：添加到inventory列表，使用"物品名x数量"格式
-            - 属性：如果有属性点奖励，更新到stats字段
-            - 技能：如果有新技能，添加到abilities列表
-
-升级示例：
-            ```json
-            "skillsStateUpdates": {
-              "level": 2,                    // 从1级升到2级
-              "experience": 50,              // 升级后剩余经验值
-              "gold": 150,                   // 金币变化
-              "inventory": ["铁剑x1", "生命药水x2"],  // 物品变化
-              "abilities": ["基础剑术", "治疗术"],     // 新获得的技能
-              "stats": {                     // 属性提升
-                "力量": 10,                   // 从8提升到10
-                "敏捷": 12,                   // 从10提升到12
-                "智力": 13,                   // 从12提升到13
-                "体质": 10                    // 从9提升到10
-              }
-            }
-            ```
 
 
-            ### 🚀 角色成长系统规则（重要）
-等级提升机制：
-            - 当经验值达到当前等级上限时，必须自动升级
-            - 升级公式：下一级所需经验 = 当前等级 × 100（如：1级→2级需要100经验，2级→3级需要200经验）
-            - 升级时自动提升属性：每次升级随机提升2-3个属性点，总提升点数 = 等级
-            - 升级时恢复生命值和魔力值到满值
-            - 升级时可能获得新技能或能力
-
-任务奖励同步机制：
-            - 任务完成时，所有奖励必须立即同步到角色状态
-            - 经验值奖励：累加到当前经验值，触发升级检查
-            - 金币奖励：直接累加到角色金币
-            - 物品奖励：添加到背包，使用"物品名x数量"格式
-            - 属性奖励：如果有，直接更新到角色属性
-            - 技能奖励：如果有，添加到技能列表
-            - 关键：任务奖励和角色状态更新必须在同一次回复中完成
-
-属性强化规则：
-            - 力量：影响物理攻击力和负重能力
-            - 敏捷：影响闪避、速度和精准度
-            - 智力：影响魔法攻击力和学习能力
-            - 体质：影响生命值上限和抗性
-            - 每次升级时，根据角色发展方向随机分配属性点
-            - 特殊事件、装备、技能可能临时或永久改变属性
-
-挑战与成长平衡：
-            - 设计有挑战性的战斗、解谜、社交场景
-            - 根据角色等级调整挑战难度
-            - 提供多种成长路径：战斗型、智力型、社交型、探索型
-            - 确保角色状态在冒险中有实际用途和影响
+重要说明：
+            - 任务奖励和角色状态更新由后端系统自动处理
+            - 大模型只需要在questUpdates中提供任务完成信息和奖励数据
+            - 后端会根据奖励自动更新角色的经验值、金币、物品、属性和技能
+            - 关键：rewards中的items字段必须只包含本次任务获得的新物品，不要重复列出角色已有的物品
+            - 正确示例：角色已有["警徽x2", "线索笔记x1"]，本次任务获得"警徽x1"和"新技能x1"，则items应写["警徽x1", "新技能x1"]
+            - 错误示例：不要写成["警徽x2", "线索笔记x1", "警徽x1", "新技能x1"]（这样会重复）
             
             ### 情节更新说明 - arcUpdates字段
             - arcUpdates字段用于记录情节相关的更新信息，包含：
@@ -1087,7 +828,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             ### 评估JSON字段要求
             - 评估JSON必须使用以下英文字段名：
               * 基础评估字段：ruleCompliance、contextConsistency、convergenceProgress、overallScore、strategy、assessmentNotes、suggestedActions、convergenceHints
-              * 游戏逻辑字段：questUpdates、worldStateUpdates、skillsStateUpdates、diceRolls、learningChallenges、stateUpdates、arcUpdates、convergenceStatusUpdates
+              * 游戏逻辑字段：questUpdates、worldStateUpdates、diceRolls、learningChallenges、stateUpdates、memoryUpdates、arcUpdates、convergenceStatusUpdates
             - strategy 取值仅能为：ACCEPT、ADJUST、CORRECT。
             - 评估片段内禁止出现除JSON以外的任何字符或注释。
             - 使用§包裹评估JSON，确保在正常叙事结束后使用。
@@ -1198,11 +939,6 @@ public class PromptBuilder implements PromptBuilderInterface {
             你是%s。请用角色扮演的方式回应用户，保持世界观的一致性，
             提供生动的描述和有意义的互动。如果需要随机判定，使用骰子指令。
 
-            ## 记忆管理
-            如果你的回复中包含重要信息，请在回复末尾使用记忆标记：
-            - 角色关系：[MEMORY:CHARACTER:角色名:关系变化]
-            - 重要事件：[MEMORY:EVENT:事件描述]
-            - 技能学习：[MEMORY:SKILL:技能名:学习情况]
 
             用户消息：%s
             """, roleDescription, message);
