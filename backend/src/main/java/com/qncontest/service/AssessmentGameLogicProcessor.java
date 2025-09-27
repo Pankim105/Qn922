@@ -842,10 +842,16 @@ public class AssessmentGameLogicProcessor {
             // 处理情节起始轮数更新
             Integer newArcStartRound = getIntegerValue(arcUpdates, "currentArcStartRound");
             if (newArcStartRound != null && !newArcStartRound.equals(session.getCurrentArcStartRound())) {
-                logger.info("检测到情节起始轮数变化: {} -> {}", session.getCurrentArcStartRound(), newArcStartRound);
-                session.setCurrentArcStartRound(newArcStartRound);
-                sessionUpdated = true;
-                logger.info("✅ 更新情节起始轮数: sessionId={}, newArcStartRound={}", sessionId, newArcStartRound);
+                // 验证情节起始轮数的合理性
+                if (newArcStartRound > 0 && newArcStartRound <= session.getTotalRounds()) {
+                    logger.info("检测到情节起始轮数变化: {} -> {}", session.getCurrentArcStartRound(), newArcStartRound);
+                    session.setCurrentArcStartRound(newArcStartRound);
+                    sessionUpdated = true;
+                    logger.info("✅ 更新情节起始轮数: sessionId={}, newArcStartRound={}", sessionId, newArcStartRound);
+                } else {
+                    logger.warn("⚠️ 情节起始轮数不合理，跳过更新: sessionId={}, newArcStartRound={}, totalRounds={}", 
+                               sessionId, newArcStartRound, session.getTotalRounds());
+                }
             }
             
             // 处理总轮数更新

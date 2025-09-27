@@ -40,6 +40,9 @@ public class PromptBuilder implements PromptBuilderInterface {
     private com.qncontest.service.WorldEventService worldEventService;
     
     @Autowired
+    private com.qncontest.service.ChatSessionService chatSessionService;
+    
+    @Autowired
     private ObjectMapper objectMapper;
     
     /**
@@ -148,9 +151,13 @@ public class PromptBuilder implements PromptBuilderInterface {
         prompt.append("\n\n");
 
         // 轮次与情节信息
-        if (context.getTotalRounds() != null) {
+        try {
+            // 获取实际的对话轮数（基于用户消息数量）
+            int actualRounds = getActualConversationRounds(context.getSessionId());
+            
             prompt.append("⏱️ 轮次与情节\n");
-            prompt.append("当前总轮数: ").append(context.getTotalRounds()).append("\n");
+            prompt.append("当前总轮数: ").append(actualRounds).append(" (基于实际对话轮数)\n");
+            
             if (context.getCurrentArcStartRound() != null) {
                 prompt.append("当前情节起始轮数: ").append(context.getCurrentArcStartRound()).append("\n");
             }
@@ -159,10 +166,28 @@ public class PromptBuilder implements PromptBuilderInterface {
             }
             // 动态计算当前情节进行的轮数，便于模型决策
             if (context.getCurrentArcStartRound() != null) {
-                int arcRounds = Math.max(1, context.getTotalRounds() - context.getCurrentArcStartRound() + 1);
+                int arcRounds = Math.max(1, actualRounds - context.getCurrentArcStartRound() + 1);
                 prompt.append("当前情节已进行轮数: ").append(arcRounds).append("\n");
             }
             prompt.append("\n");
+        } catch (Exception e) {
+            logger.debug("获取实际对话轮数失败: {}", e.getMessage());
+            // 降级处理：使用原有的totalRounds
+            if (context.getTotalRounds() != null) {
+                prompt.append("⏱️ 轮次与情节\n");
+                prompt.append("当前总轮数: ").append(context.getTotalRounds()).append(" (降级显示)\n");
+                if (context.getCurrentArcStartRound() != null) {
+                    prompt.append("当前情节起始轮数: ").append(context.getCurrentArcStartRound()).append("\n");
+                }
+                if (context.getCurrentArcName() != null && !context.getCurrentArcName().isEmpty()) {
+                    prompt.append("当前情节名称: ").append(context.getCurrentArcName()).append("\n");
+                }
+                if (context.getCurrentArcStartRound() != null) {
+                    int arcRounds = Math.max(1, context.getTotalRounds() - context.getCurrentArcStartRound() + 1);
+                    prompt.append("当前情节已进行轮数: ").append(arcRounds).append("\n");
+                }
+                prompt.append("\n");
+            }
         }
 
         // 收敛状态信息
@@ -270,9 +295,13 @@ public class PromptBuilder implements PromptBuilderInterface {
         }
 
         // 轮次与情节信息
-        if (context.getTotalRounds() != null) {
+        try {
+            // 获取实际的对话轮数（基于用户消息数量）
+            int actualRounds = getActualConversationRounds(context.getSessionId());
+            
             prompt.append("⏱️ 轮次与情节\n");
-            prompt.append("当前总轮数: ").append(context.getTotalRounds()).append("\n");
+            prompt.append("当前总轮数: ").append(actualRounds).append(" (基于实际对话轮数)\n");
+            
             if (context.getCurrentArcStartRound() != null) {
                 prompt.append("当前情节起始轮数: ").append(context.getCurrentArcStartRound()).append("\n");
             }
@@ -280,10 +309,28 @@ public class PromptBuilder implements PromptBuilderInterface {
                 prompt.append("当前情节名称: ").append(context.getCurrentArcName()).append("\n");
             }
             if (context.getCurrentArcStartRound() != null) {
-                int arcRounds = Math.max(1, context.getTotalRounds() - context.getCurrentArcStartRound() + 1);
+                int arcRounds = Math.max(1, actualRounds - context.getCurrentArcStartRound() + 1);
                 prompt.append("当前情节已进行轮数: ").append(arcRounds).append("\n");
             }
             prompt.append("\n");
+        } catch (Exception e) {
+            logger.debug("获取实际对话轮数失败: {}", e.getMessage());
+            // 降级处理：使用原有的totalRounds
+            if (context.getTotalRounds() != null) {
+                prompt.append("⏱️ 轮次与情节\n");
+                prompt.append("当前总轮数: ").append(context.getTotalRounds()).append(" (降级显示)\n");
+                if (context.getCurrentArcStartRound() != null) {
+                    prompt.append("当前情节起始轮数: ").append(context.getCurrentArcStartRound()).append("\n");
+                }
+                if (context.getCurrentArcName() != null && !context.getCurrentArcName().isEmpty()) {
+                    prompt.append("当前情节名称: ").append(context.getCurrentArcName()).append("\n");
+                }
+                if (context.getCurrentArcStartRound() != null) {
+                    int arcRounds = Math.max(1, context.getTotalRounds() - context.getCurrentArcStartRound() + 1);
+                    prompt.append("当前情节已进行轮数: ").append(arcRounds).append("\n");
+                }
+                prompt.append("\n");
+            }
         }
 
         // 第4层：最新事件历史
@@ -1311,6 +1358,34 @@ JSON字段使用原则：
         } catch (Exception e) {
             logger.warn("格式化事件信息失败: eventId={}", event.getId(), e);
             return String.format("[%s] 序列%d - 格式化失败", event.getEventType().name(), event.getSequence());
+        }
+    }
+    
+    /**
+     * 获取实际对话轮数（基于用户消息数量）
+     */
+    private int getActualConversationRounds(String sessionId) {
+        try {
+            // 获取会话信息
+            com.qncontest.entity.ChatSession session = chatSessionService.getSessionById(sessionId);
+            if (session == null) {
+                logger.warn("会话不存在: sessionId={}", sessionId);
+                return 0;
+            }
+            
+            // 使用ChatSessionService获取用户消息数量
+            // 这里我们直接使用totalRounds，因为它已经在saveUserMessage中正确计算
+            Integer totalRounds = session.getTotalRounds();
+            if (totalRounds == null) {
+                return 0;
+            }
+            
+            logger.debug("获取实际对话轮数: sessionId={}, totalRounds={}", sessionId, totalRounds);
+            return totalRounds;
+            
+        } catch (Exception e) {
+            logger.warn("获取实际对话轮数失败: sessionId={}", sessionId, e);
+            return 0;
         }
     }
 }
