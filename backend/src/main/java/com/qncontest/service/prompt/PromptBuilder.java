@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -34,6 +35,9 @@ public class PromptBuilder implements PromptBuilderInterface {
     
     @Autowired
     private com.qncontest.service.interfaces.MemoryManagerInterface memoryService;
+    
+    @Autowired
+    private com.qncontest.service.WorldEventService worldEventService;
     
     @Autowired
     private ObjectMapper objectMapper;
@@ -172,7 +176,19 @@ public class PromptBuilder implements PromptBuilderInterface {
             logger.debug("获取收敛状态摘要失败: {}", e.getMessage());
         }
 
-        // 第4层：记忆上下文（使用简化的记忆上下文构建方法）
+        // 第4层：最新事件历史
+        try {
+            String eventHistory = buildEventHistory(context.getSessionId());
+            if (!eventHistory.isEmpty()) {
+                prompt.append("📜 最新事件历史\n");
+                prompt.append(eventHistory);
+                prompt.append("\n\n");
+            }
+        } catch (Exception e) {
+            logger.debug("获取事件历史失败: {}", e.getMessage());
+        }
+
+        // 第5层：记忆上下文（使用简化的记忆上下文构建方法）
         try {
             String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
             if (!memoryContext.isEmpty()) {
@@ -184,7 +200,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             logger.debug("获取记忆上下文失败: {}", e.getMessage());
         }
 
-        // 第5层：行为规则
+        // 第6层：行为规则
         prompt.append("⚖️ 行为准则\n");
         prompt.append(buildBehaviorRules(context));
         prompt.append("\n\n");
@@ -270,7 +286,19 @@ public class PromptBuilder implements PromptBuilderInterface {
             prompt.append("\n");
         }
 
-        // 第4层：记忆上下文（使用简化的记忆上下文构建方法）
+        // 第4层：最新事件历史
+        try {
+            String eventHistory = buildEventHistory(context.getSessionId());
+            if (!eventHistory.isEmpty()) {
+                prompt.append("📜 最新事件历史\n");
+                prompt.append(eventHistory);
+                prompt.append("\n\n");
+            }
+        } catch (Exception e) {
+            logger.debug("获取事件历史失败: {}", e.getMessage());
+        }
+
+        // 第5层：记忆上下文（使用简化的记忆上下文构建方法）
         try {
             String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
             if (!memoryContext.isEmpty()) {
@@ -282,7 +310,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             logger.debug("获取记忆上下文失败: {}", e.getMessage());
         }
 
-        // 第5层：行为准则（扩展为DM准则）
+        // 第6层：行为准则（扩展为DM准则）
         prompt.append("⚖️ DM行为准则\n");
         prompt.append(buildDMGuidelines(context));
         prompt.append("\n\n");
@@ -1152,6 +1180,137 @@ JSON字段使用原则：
         } catch (Exception e) {
             logger.warn("解析地点模板失败: {}", e.getMessage());
             return "- 使用默认地点设置\n";
+        }
+    }
+    
+    /**
+     * 构建事件历史信息
+     */
+    private String buildEventHistory(String sessionId) {
+        try {
+            // 获取最新15条事件
+            List<com.qncontest.entity.WorldEvent> events = worldEventService.getLatestEvents(sessionId, 15);
+            
+            if (events.isEmpty()) {
+                return "暂无事件记录";
+            }
+            
+            StringBuilder eventHistory = new StringBuilder();
+            
+            // 按时间顺序显示（最新的在前）
+            for (int i = events.size() - 1; i >= 0; i--) {
+                com.qncontest.entity.WorldEvent event = events.get(i);
+                
+                // 格式化事件信息
+                String eventInfo = formatEventInfo(event);
+                if (!eventInfo.isEmpty()) {
+                    eventHistory.append(String.format("%d. %s\n", events.size() - i, eventInfo));
+                }
+            }
+            
+            return eventHistory.toString();
+        } catch (Exception e) {
+            logger.warn("构建事件历史失败: sessionId={}", sessionId, e);
+            return "获取事件历史失败";
+        }
+    }
+    
+    /**
+     * 格式化单个事件信息
+     */
+    private String formatEventInfo(com.qncontest.entity.WorldEvent event) {
+        try {
+            StringBuilder eventInfo = new StringBuilder();
+            
+            // 添加事件类型和时间
+            eventInfo.append(String.format("[%s] ", event.getEventType().name()));
+            eventInfo.append(String.format("序列%d ", event.getSequence()));
+            
+            // 解析事件数据
+            if (event.getEventData() != null && !event.getEventData().trim().isEmpty()) {
+                JsonNode eventData = objectMapper.readTree(event.getEventData());
+                
+                // 根据事件类型格式化不同的信息
+                switch (event.getEventType()) {
+                    case USER_ACTION:
+                        if (eventData.has("action")) {
+                            eventInfo.append(String.format("用户行动: %s", eventData.get("action").asText()));
+                        }
+                        break;
+                    case AI_RESPONSE:
+                        if (eventData.has("response")) {
+                            String response = eventData.get("response").asText();
+                            // 截取前100个字符
+                            if (response.length() > 100) {
+                                response = response.substring(0, 100) + "...";
+                            }
+                            eventInfo.append(String.format("AI回复: %s", response));
+                        }
+                        break;
+                    case DICE_ROLL:
+                        if (eventData.has("diceType") && eventData.has("result")) {
+                            eventInfo.append(String.format("骰子检定: d%d = %d", 
+                                eventData.get("diceType").asInt(), 
+                                eventData.get("result").asInt()));
+                        }
+                        break;
+                    case QUEST_UPDATE:
+                        if (eventData.has("questId") && eventData.has("status")) {
+                            eventInfo.append(String.format("任务更新: %s - %s", 
+                                eventData.get("questId").asText(),
+                                eventData.get("status").asText()));
+                        }
+                        break;
+                    case STATE_CHANGE:
+                        if (eventData.has("change")) {
+                            eventInfo.append(String.format("状态变更: %s", eventData.get("change").asText()));
+                        }
+                        break;
+                    case LOCATION_CHANGE:
+                        if (eventData.has("from") && eventData.has("to")) {
+                            eventInfo.append(String.format("地点变更: %s -> %s", 
+                                eventData.get("from").asText(),
+                                eventData.get("to").asText()));
+                        }
+                        break;
+                    case CHARACTER_UPDATE:
+                        if (eventData.has("character") && eventData.has("change")) {
+                            eventInfo.append(String.format("角色更新: %s - %s", 
+                                eventData.get("character").asText(),
+                                eventData.get("change").asText()));
+                        }
+                        break;
+                    case MEMORY_UPDATE:
+                        if (eventData.has("content")) {
+                            String content = eventData.get("content").asText();
+                            if (content.length() > 50) {
+                                content = content.substring(0, 50) + "...";
+                            }
+                            eventInfo.append(String.format("记忆更新: %s", content));
+                        }
+                        break;
+                    case SYSTEM_EVENT:
+                        if (eventData.has("description")) {
+                            eventInfo.append(String.format("系统事件: %s", eventData.get("description").asText()));
+                        }
+                        break;
+                    default:
+                        eventInfo.append("未知事件类型");
+                        break;
+                }
+            } else {
+                eventInfo.append("无事件数据");
+            }
+            
+            // 添加时间信息（如果有）
+            if (event.getTimestamp() != null) {
+                eventInfo.append(String.format(" (时间: %s)", event.getTimestamp().toString()));
+            }
+            
+            return eventInfo.toString();
+        } catch (Exception e) {
+            logger.warn("格式化事件信息失败: eventId={}", event.getId(), e);
+            return String.format("[%s] 序列%d - 格式化失败", event.getEventType().name(), event.getSequence());
         }
     }
 }
