@@ -94,7 +94,41 @@ public class PromptBuilder implements PromptBuilderInterface {
     public String buildLayeredPrompt(RoleplayContext context) {
         StringBuilder prompt = new StringBuilder();
         
-        // 第1层：世界观基础
+        // 第0层：从数据库获取世界模板信息
+        try {
+            Optional<WorldTemplateResponse> templateOpt = worldTemplateService.getWorldTemplate(context.getWorldType());
+            if (templateOpt.isPresent()) {
+                WorldTemplateResponse template = templateOpt.get();
+                
+                // 添加世界描述
+                if (template.getDescription() != null && !template.getDescription().trim().isEmpty()) {
+                    prompt.append("🌍 世界描述\n");
+                    prompt.append(template.getDescription()).append("\n\n");
+                }
+                
+                // 添加系统提示词模板
+                if (template.getSystemPromptTemplate() != null && !template.getSystemPromptTemplate().trim().isEmpty()) {
+                    prompt.append("📋 系统提示词模板\n");
+                    prompt.append(template.getSystemPromptTemplate()).append("\n\n");
+                }
+                
+                // 添加默认规则
+                if (template.getDefaultRules() != null && !template.getDefaultRules().trim().isEmpty() && !template.getDefaultRules().equals("{}")) {
+                    prompt.append("⚖️ 默认世界规则\n");
+                    prompt.append(parseDefaultRules(template.getDefaultRules())).append("\n\n");
+                }
+                
+                // 添加地点模板
+                if (template.getLocationTemplates() != null && !template.getLocationTemplates().trim().isEmpty() && !template.getLocationTemplates().equals("{}")) {
+                    prompt.append("📍 地点模板\n");
+                    prompt.append(parseLocationTemplates(template.getLocationTemplates())).append("\n\n");
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("获取世界模板信息失败: {}", e.getMessage());
+        }
+        
+        // 第1层：世界观基础（保留原有逻辑作为备选）
         prompt.append("🌍 世界观设定\n");
         prompt.append(worldTemplateProcessor.getWorldFoundation(context.getWorldType()));
         prompt.append("\n\n");
@@ -165,7 +199,41 @@ public class PromptBuilder implements PromptBuilderInterface {
     public String buildDMAwarePrompt(RoleplayContext context) {
         StringBuilder prompt = new StringBuilder();
 
-        // 第1层：世界观基础
+        // 第0层：从数据库获取世界模板信息
+        try {
+            Optional<WorldTemplateResponse> templateOpt = worldTemplateService.getWorldTemplate(context.getWorldType());
+            if (templateOpt.isPresent()) {
+                WorldTemplateResponse template = templateOpt.get();
+                
+                // 添加世界描述
+                if (template.getDescription() != null && !template.getDescription().trim().isEmpty()) {
+                    prompt.append("🌍 世界描述\n");
+                    prompt.append(template.getDescription()).append("\n\n");
+                }
+                
+                // 添加系统提示词模板
+                if (template.getSystemPromptTemplate() != null && !template.getSystemPromptTemplate().trim().isEmpty()) {
+                    prompt.append("📋 系统提示词模板\n");
+                    prompt.append(template.getSystemPromptTemplate()).append("\n\n");
+                }
+                
+                // 添加默认规则
+                if (template.getDefaultRules() != null && !template.getDefaultRules().trim().isEmpty() && !template.getDefaultRules().equals("{}")) {
+                    prompt.append("⚖️ 默认世界规则\n");
+                    prompt.append(parseDefaultRules(template.getDefaultRules())).append("\n\n");
+                }
+                
+                // 添加地点模板
+                if (template.getLocationTemplates() != null && !template.getLocationTemplates().trim().isEmpty() && !template.getLocationTemplates().equals("{}")) {
+                    prompt.append("📍 地点模板\n");
+                    prompt.append(parseLocationTemplates(template.getLocationTemplates())).append("\n\n");
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("获取世界模板信息失败: {}", e.getMessage());
+        }
+
+        // 第1层：世界观基础（保留原有逻辑作为备选）
         prompt.append("🌍 世界观设定\n");
         prompt.append(worldTemplateProcessor.getWorldFoundation(context.getWorldType()));
         prompt.append("\n\n");
@@ -1021,6 +1089,69 @@ JSON字段使用原则：
         } catch (Exception e) {
             logger.warn("解析收敛规则失败: {}", e.getMessage());
             return "- 故事将根据你的选择和进展自然收敛\n";
+        }
+    }
+    
+    /**
+     * 解析默认规则JSON数据
+     */
+    private String parseDefaultRules(String defaultRulesJson) {
+        try {
+            JsonNode rules = objectMapper.readTree(defaultRulesJson);
+            
+            StringBuilder rulesInfo = new StringBuilder();
+            
+            // 遍历所有规则字段
+            rules.fieldNames().forEachRemaining(fieldName -> {
+                JsonNode fieldValue = rules.get(fieldName);
+                String value = fieldValue.isTextual() ? fieldValue.asText() : fieldValue.toString();
+                rulesInfo.append(String.format("- %s: %s\n", fieldName, value));
+            });
+            
+            return rulesInfo.toString();
+        } catch (Exception e) {
+            logger.warn("解析默认规则失败: {}", e.getMessage());
+            return "- 使用默认世界规则\n";
+        }
+    }
+    
+    /**
+     * 解析地点模板JSON数据
+     */
+    private String parseLocationTemplates(String locationTemplatesJson) {
+        try {
+            JsonNode locations = objectMapper.readTree(locationTemplatesJson);
+            
+            StringBuilder locationInfo = new StringBuilder();
+            
+            // 处理不同的JSON结构
+            if (locations.isArray()) {
+                // 如果是数组格式
+                for (JsonNode location : locations) {
+                    if (location.isObject()) {
+                        String name = location.has("name") ? location.get("name").asText() : "未知地点";
+                        String description = location.has("description") ? location.get("description").asText() : "暂无描述";
+                        locationInfo.append(String.format("- %s: %s\n", name, description));
+                    }
+                }
+            } else if (locations.isObject()) {
+                // 如果是对象格式
+                locations.fieldNames().forEachRemaining(fieldName -> {
+                    JsonNode location = locations.get(fieldName);
+                    if (location.isObject()) {
+                        String name = location.has("name") ? location.get("name").asText() : fieldName;
+                        String description = location.has("description") ? location.get("description").asText() : "暂无描述";
+                        locationInfo.append(String.format("- %s: %s\n", name, description));
+                    } else {
+                        locationInfo.append(String.format("- %s: %s\n", fieldName, location.asText()));
+                    }
+                });
+            }
+            
+            return locationInfo.toString();
+        } catch (Exception e) {
+            logger.warn("解析地点模板失败: {}", e.getMessage());
+            return "- 使用默认地点设置\n";
         }
     }
 }
