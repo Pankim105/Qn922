@@ -25,7 +25,14 @@
 
 观看系统演示视频，了解核心功能：
 
-[![QN Contest 演示视频](https://img.shields.io/badge/📹-观看演示视频-blue?style=for-the-badge)](demoPre.mp4)
+### 在线播放
+<video width="800" controls>
+  <source src="demoPre.mp4" type="video/mp4">
+  您的浏览器不支持视频播放。
+</video>
+
+### 下载观看
+[![QN Contest 演示视频](https://img.shields.io/badge/📹-下载演示视频-blue?style=for-the-badge)](demoPre.mp4)
 
 > **演示内容**：
 > - 🎭 角色扮演系统体验
