@@ -154,7 +154,7 @@ export const ThemeSwitcher = React.forwardRef<HTMLDivElement, ThemeSwitcherProps
     <Card 
       ref={ref}
       className={cn(
-        "z-50 backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-white/20 shadow-2xl overflow-hidden",
+        "backdrop-blur-xl bg-white/95 dark:bg-gray-900/95 border-white/20 shadow-2xl overflow-hidden",
         "hover:shadow-3xl",
         className
       )}

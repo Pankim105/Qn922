@@ -233,8 +233,8 @@ const GameLayout: React.FC<GameLayoutProps> = memo(({
               )}
               {魔力值 && (
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">💙 魔力值:</span>
-                  <span className="font-bold text-blue-700 dark:text-blue-300 text-sm">{魔力值}</span>
+                  <span className="font-semibold text-red-600 dark:text-red-400">💙 魔力值:</span>
+                  <span className="font-bold text-red-700 dark:text-red-300 text-sm">{魔力值}</span>
                 </div>
               )}
             </div>
@@ -250,7 +250,7 @@ const GameLayout: React.FC<GameLayoutProps> = memo(({
                 {selectedSkills.map((skill: any, index: number) => {
                   const skillLevel = skillLevels && skillLevels[skill] ? skillLevels[skill] : 1;
                   return (
-                    <div key={index} className="bg-white dark:bg-gray-800 px-2 py-1 rounded border border-orange-200 dark:border-orange-600 text-gray-700 dark:text-gray-300 flex justify-between items-center">
+                    <div key={index} className="bg-orange-50/80 dark:bg-orange-900/30 px-2 py-1 rounded border border-orange-200 dark:border-orange-600 text-gray-700 dark:text-gray-300 flex justify-between items-center">
                       <span className="font-bold text-gray-800 dark:text-gray-200">⚡ {skillMap[skill] || skill}</span>
                       <span className="font-bold text-orange-700 dark:text-orange-300 text-sm">Lv.{skillLevel}</span>
                     </div>
@@ -270,7 +270,7 @@ const GameLayout: React.FC<GameLayoutProps> = memo(({
             {attributes ? (
               <div className="grid grid-cols-2 gap-1">
                 {Object.entries(attributes).map(([key, value]) => (
-                  <div key={key} className="bg-white dark:bg-gray-800 px-2 py-1 rounded border border-red-200 dark:border-red-600 flex justify-between items-center">
+                  <div key={key} className="bg-red-50/80 dark:bg-red-900/30 px-2 py-1 rounded border border-red-200 dark:border-red-600 flex justify-between items-center">
                     <span className="font-semibold text-gray-600 dark:text-gray-400">{attributeMap[key] || key}:</span>
                     <span className="font-bold text-red-700 dark:text-red-300">{String(value)}</span>
                   </div>
@@ -289,7 +289,7 @@ const GameLayout: React.FC<GameLayoutProps> = memo(({
             {inventory && inventory.length > 0 ? (
               <div className="grid grid-cols-1 gap-1">
                 {inventory.map((item: any, index: number) => (
-                  <div key={index} className="bg-white dark:bg-gray-800 px-2 py-1 rounded border border-purple-200 dark:border-purple-600 text-gray-700 dark:text-gray-300">
+                  <div key={index} className="bg-purple-50/80 dark:bg-purple-900/30 px-2 py-1 rounded border border-purple-200 dark:border-purple-600 text-gray-700 dark:text-gray-300">
                     <span className="font-bold">📦 {item}</span>
                   </div>
                 ))}
@@ -407,7 +407,7 @@ const GameLayout: React.FC<GameLayoutProps> = memo(({
                             if (questUpdates.progress && questUpdates.progress.length > 0) {
                               questContent += '<div class="mb-4"><h5 class="font-bold text-sm mb-3 flex items-center gap-2 text-green-600 dark:text-green-400"><div class="w-3 h-3 rounded-full bg-green-500 shadow-sm"></div><span class="text-shadow-sm">活跃任务</span></h5><div class="space-y-3">';
                               questUpdates.progress.forEach((quest: any) => {
-                                questContent += `<div class="border-l-4 border-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-r-lg shadow-md"><div class="font-bold text-sm mb-2">任务 ${quest.questId}</div><div class="text-gray-600 dark:text-gray-400 text-sm">进度: ${quest.progress}</div></div>`;
+                                questContent += `<div class="border-l-4 border-green-400 bg-green-50/80 dark:bg-green-900/30 p-3 rounded-r-lg shadow-md"><div class="font-bold text-sm mb-2 text-gray-800 dark:text-gray-200">任务 ${quest.questId}</div><div class="text-gray-600 dark:text-gray-300 text-sm">进度: ${quest.progress}</div></div>`;
                               });
                               questContent += '</div></div>';
                             }
@@ -416,7 +416,7 @@ const GameLayout: React.FC<GameLayoutProps> = memo(({
                             if (questUpdates.created && questUpdates.created.length > 0) {
                               questContent += '<div class="mb-4"><h5 class="font-bold text-sm mb-3 flex items-center gap-2 text-purple-600 dark:text-purple-400"><div class="w-3 h-3 rounded-full bg-purple-500 shadow-sm"></div><span class="text-shadow-sm">新任务</span></h5><div class="space-y-3">';
                               questUpdates.created.forEach((quest: any) => {
-                                questContent += `<div class="border-l-4 border-purple-400 bg-purple-50 dark:bg-purple-900/20 p-3 rounded-r-lg shadow-md"><div class="font-bold text-sm mb-2">${quest.title || '新任务'}</div><div class="text-gray-600 dark:text-gray-400 text-sm">${quest.description || ''}</div></div>`;
+                                questContent += `<div class="border-l-4 border-purple-400 bg-purple-50/80 dark:bg-purple-900/30 p-3 rounded-r-lg shadow-md"><div class="font-bold text-sm mb-2 text-gray-800 dark:text-gray-200">${quest.title || '新任务'}</div><div class="text-gray-600 dark:text-gray-300 text-sm">${quest.description || ''}</div></div>`;
                               });
                               questContent += '</div></div>';
                             }
@@ -425,7 +425,7 @@ const GameLayout: React.FC<GameLayoutProps> = memo(({
                             if (questUpdates.completed && questUpdates.completed.length > 0) {
                               questContent += '<div class="mb-4"><h5 class="font-bold text-sm mb-3 flex items-center gap-2 text-blue-600 dark:text-blue-400"><div class="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></div><span class="text-shadow-sm">已完成任务</span></h5><div class="space-y-3">';
                               questUpdates.completed.forEach((quest: any) => {
-                                questContent += `<div class="border-l-4 border-blue-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-r-lg shadow-md"><div class="font-bold text-sm mb-2">${quest.title || '已完成任务'}</div><div class="text-gray-600 dark:text-gray-400 text-sm">${quest.description || ''}</div></div>`;
+                                questContent += `<div class="border-l-4 border-blue-400 bg-blue-50/80 dark:bg-blue-900/30 p-3 rounded-r-lg shadow-md"><div class="font-bold text-sm mb-2 text-gray-800 dark:text-gray-200">${quest.title || '已完成任务'}</div><div class="text-gray-600 dark:text-gray-300 text-sm">${quest.description || ''}</div></div>`;
                               });
                               questContent += '</div></div>';
                             }

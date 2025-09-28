@@ -24,6 +24,7 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
   const [useOptimizedComponents, setUseOptimizedComponents] = useState(true);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // 检查本地存储中的用户信息
   useEffect(() => {
@@ -49,6 +50,17 @@ function App() {
   React.useEffect(() => {
     document.documentElement.className = `${isDarkMode ? 'dark' : ''} theme-${currentTheme}`;
   }, [currentTheme, isDarkMode]);
+
+  // 监听滚动事件，增强导航栏可见性
+  React.useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setIsScrolled(scrollTop > 10);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // 处理登录成功
   const handleLoginSuccess = () => {
@@ -91,19 +103,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* 主题切换器 - 固定在右上角，脱离文档流 */}
-      <ThemeSwitcher
-        className="fixed top-4 right-4 z-50"
-        currentTheme={currentTheme}
-        isDarkMode={isDarkMode}
-        onThemeChange={setCurrentTheme}
-        onDarkModeChange={setIsDarkMode}
-        minimizable={true}
-        defaultMinimized={true}
-      />
-
       {/* 头部导航 */}
-      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className={`sticky top-0 z-[100] w-full transition-all duration-200 ${
+        isScrolled ? 'navbar-scrolled' : 'navbar-enhanced'
+      }`}>
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             {/* Logo和标题 */}
@@ -178,6 +181,18 @@ function App() {
                   </Button>
                 </div>
               )}
+            </div>
+
+            {/* 主题切换器 - 固定在导航栏右侧 */}
+            <div className="fixed top-4 right-4 z-[110]">
+              <ThemeSwitcher
+                currentTheme={currentTheme}
+                isDarkMode={isDarkMode}
+                onThemeChange={setCurrentTheme}
+                onDarkModeChange={setIsDarkMode}
+                minimizable={true}
+                defaultMinimized={true}
+              />
             </div>
 
             {/* 移动端菜单按钮 */}

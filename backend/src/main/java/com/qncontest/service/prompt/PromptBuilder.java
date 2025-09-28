@@ -376,81 +376,30 @@ public class PromptBuilder implements PromptBuilderInterface {
     }
     
     /**
-     * 构建角色定义
+     * 构建角色定义 - 从数据库世界模板中读取
      */
     private String buildCharacterDefinition(RoleplayContext context) {
-        return switch (context.getWorldType()) {
-            case "fantasy_adventure" -> """
-                你是一位经验丰富的奇幻世界游戏主持人(DM)。你的职责：
+        try {
+            Optional<WorldTemplateResponse> templateOpt = worldTemplateService.getWorldTemplate(context.getWorldType());
+            if (templateOpt.isPresent()) {
+                WorldTemplateResponse template = templateOpt.get();
                 
-                🎭 角色扮演
-                - 扮演世界中的所有NPC，每个都有独特的性格和背景
-                - 为每个角色赋予生动的对话风格和行为特征
-                - 根据情况调整NPC的态度和反应
+                // 优先使用数据库中的系统提示词模板
+                if (template.getSystemPromptTemplate() != null && !template.getSystemPromptTemplate().trim().isEmpty()) {
+                    return template.getSystemPromptTemplate();
+                }
                 
-                🌍 世界构建
-                - 生动描述环境、场景和氛围
-                - 创造富有想象力但逻辑合理的世界细节
-                - 根据玩家行为动态扩展世界内容
-                
-                ⚔️ 挑战管理
-                - 设计有趣的战斗和解谜挑战
-                - 平衡游戏难度，确保既有挑战性又有成就感
-                - 鼓励创造性的解决方案
-                - 重要：根据角色等级调整挑战难度，让属性在冒险中发挥作用
-                
-                📚 故事推进
-                - 推动引人入胜的故事情节
-                - 根据玩家选择调整故事走向
-                - 创造意想不到但合理的转折
-                
-                🚀 角色成长系统
-                - 自动升级：当经验值达到升级要求时，立即升级并提升属性
-                - 属性应用：让力量影响攻击力，敏捷影响闪避，智力影响魔法，体质影响生命值
-                - 技能获得：通过冒险、训练、学习获得新技能和能力
-                - 装备影响：让装备对角色属性产生实际影响
-                - 成长路径：提供战斗型、智力型、社交型、探索型等多种发展路线
-                
-                性格特征：富有想象力、公平公正、充满戏剧性、鼓励创新、重视角色成长
-                """;
-                
-            case "educational" -> """
-                你是一位寓教于乐的智慧导师。你的使命：
-                
-                🎓 教学融合
-                - 将学习内容自然融入有趣的冒险情节中
-                - 让知识获取成为游戏进程的一部分
-                - 确保学习过程既有趣又有效
-                
-                🧩 挑战设计
-                - 创造富有挑战性但可达成的学习任务
-                - 设计多样化的问题类型和难度层次
-                - 根据学习者表现调整难度
-                
-                🏆 激励引导
-                - 庆祝每一个学习成就，无论大小
-                - 在失败时给予鼓励和建设性建议
-                - 帮助学习者建立自信和学习兴趣
-                
-                🤔 思维启发
-                - 引导思考而非直接给出答案
-                - 使用苏格拉底式提问法
-                - 鼓励批判性思维和创造性解决方案
-                
-                教学风格：耐心鼓励、善用比喻、因材施教、寓教于乐
-                """;
-                
-            case "japanese_school" -> """
-                你是温和亲切的学园生活向导，熟悉校园的每一个角落。
-                
-                🌸 校园专家：了解学校的各种活动、社团和传统
-                👥 人际导师：帮助学生处理友谊和人际关系问题
-                📚 学习助手：在学业上给予适当的建议和鼓励
-                🎭 活动组织：策划有趣的校园活动和节日庆典
-                """;
-                
-            default -> "你是一位智慧而友善的向导，帮助玩家在这个世界中成长和探索。";
-        };
+                // 如果没有系统提示词模板，使用DM指令
+                if (template.getDmInstructions() != null && !template.getDmInstructions().trim().isEmpty()) {
+                    return template.getDmInstructions();
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("获取世界模板角色定义失败: {}", e.getMessage());
+        }
+        
+        // 降级处理：使用默认角色定义
+        return "你是一位智慧而友善的向导，帮助玩家在这个世界中成长和探索。";
     }
     
     /**
@@ -542,7 +491,7 @@ public class PromptBuilder implements PromptBuilderInterface {
     
     
     /**
-     * 构建行为准则
+     * 构建行为准则 - 从数据库世界模板中读取
      */
     private String buildBehaviorRules(RoleplayContext context) {
         String commonRules = """
@@ -560,38 +509,31 @@ public class PromptBuilder implements PromptBuilderInterface {
             - 清晰说明行动的后果
             """;
             
-        String worldSpecificRules = switch (context.getWorldType()) {
-            case "fantasy_adventure" -> """
-                
-                ⚔️ 奇幻世界特殊规则
-                - 魔法有其代价和限制
-                - 不同种族有各自的文化和特征
-                - 危险与机遇并存
-                - 英雄主义精神是核心主题
-                """;
-                
-            case "educational" -> """
-                
-                📚 教育世界特殊规则
-                - 每个挑战都应包含学习要素
-                - 错误是学习过程的一部分
-                - 提供多种解决问题的方法
-                - 定期总结和强化学习成果
-                """;
-                
-            case "japanese_school" -> """
-                
-                🌸 日本校园世界特殊规则
-                - 校园生活有其独特的节奏和传统
-                - 人际关系和友谊是重要主题
-                - 学习和成长是核心价值
-                - 青春和梦想是永恒主题
-                """;
-                
-            default -> "";
-        };
+        // 从数据库获取世界特定规则
+        String worldSpecificRules = getWorldSpecificRules(context.getWorldType());
         
         return commonRules + worldSpecificRules;
+    }
+    
+    /**
+     * 从数据库获取世界特定规则
+     */
+    private String getWorldSpecificRules(String worldType) {
+        try {
+            Optional<WorldTemplateResponse> templateOpt = worldTemplateService.getWorldTemplate(worldType);
+            if (templateOpt.isPresent()) {
+                WorldTemplateResponse template = templateOpt.get();
+                
+                // 使用数据库中的默认规则
+                if (template.getDefaultRules() != null && !template.getDefaultRules().trim().isEmpty() && !template.getDefaultRules().equals("{}")) {
+                    return "\n\n" + parseDefaultRules(template.getDefaultRules());
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("获取世界特定规则失败: {}", e.getMessage());
+        }
+        
+        return "";
     }
     
     /**
@@ -656,39 +598,28 @@ public class PromptBuilder implements PromptBuilderInterface {
             [/DIALOGUE]
             
             [WORLD]
-            世界状态信息，生动描述当前环境：
-            📍 当前位置: 神秘森林深处的古老石圈
-            🌅 时间: 黄昏时分，夕阳西下
-            🌤️ 天气: 微风轻拂，空气中弥漫着魔法气息
-            🔮 环境: 古老的符文石柱环绕四周，地面上刻着发光的法阵
-            👥 NPC: 守护精灵艾莉娅正在石圈中央等待
-            ⚡ 特殊事件: 远处传来神秘的咏唱声，法阵开始微微发光
+            世界状态信息，使用分号分隔的键值对格式：
+            📍 当前位置: [具体位置描述]; 🌅 时间: [时间描述]; 🌤️ 天气: [天气状况]; 🔮 环境: [环境描述]; 👥 NPC: [NPC状态]; ⚡ 特殊事件: [事件描述]
             [/WORLD]
             
             [QUESTS]
-            1. 探索神秘森林：深入森林寻找失落的魔法水晶，进度2/5个水晶碎片已收集（奖励：经验值200、金币100、魔法护符）; 2. 拯救村民：从哥布林手中救出被困村民，已救出3人，还有2人被困（奖励：经验值150、金币50、村民感谢信）
+            任务信息，使用分号分隔的任务列表格式：
+            1. [任务标题]: [任务描述]，进度[当前/目标]（奖励：[奖励描述]）; 2. [任务标题]: [任务描述]，进度[当前/目标]（奖励：[奖励描述]）
             [/QUESTS]
             
             [CHOICES]
             为玩家提供的行动选择，必须使用分号(;)分隔每个选择项：
-            1. 调查古老石圈 - 仔细检查符文石柱，可能发现隐藏的魔法秘密; 2. 与守护精灵对话 - 向艾莉娅询问关于失落水晶的线索; 3. 搜索周围区域 - 在森林中寻找可能的线索或隐藏物品; 4. 使用魔法感知 - 消耗魔力值感知周围的魔法波动; 5. 自由行动 - 描述你想要进行的其他行动
+            1. [选择标题] - [选择描述]; 2. [选择标题] - [选择描述]; 3. [选择标题] - [选择描述]; 4. [选择标题] - [选择描述]; 5. 自由行动 - 描述你想要进行的其他行动
             [/CHOICES]
             
 重要：请确保结构化格式的完整性，不要遗漏任何字段。特别是结尾和开头约定
             """;
 
-        String worldSpecificRules = switch (context.getWorldType()) {
-            case "fantasy_adventure" ->
-                "\n⚔️ 奇幻世界特殊规则\n- 魔法有其代价和限制\n- 不同种族有各自的文化和特征\n- 危险与机遇并存\n- 英雄主义精神是核心主题\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
-
-            case "educational" ->
-                "\n📚 教育世界特殊规则\n- 每个挑战都应包含学习要素\n- 错误是学习过程的一部分\n- 提供多种解决问题的方法\n- 定期总结和强化学习成果\n- 强制场景切换：在同一个学习场景中最多进行5轮对话，第5轮后必须强制切换学习场景或更新学习任务";
-
-            case "japanese_school" ->
-                "\n🌸 日本校园世界特殊规则\n- 校园生活有其独特的节奏和传统\n- 人际关系和友谊是重要主题\n- 学习和成长是核心价值\n- 青春和梦想是永恒主题\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
-
-            default -> "\n🌍 通用世界特殊规则\n- 保持世界规则的一致性\n- 尊重玩家的选择和创意\n- 平衡挑战与趣味性\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
-        };
+        // 从数据库获取世界特定规则
+        String worldSpecificRules = getWorldSpecificRules(context.getWorldType());
+        
+        // 添加通用的强制场景切换规则
+        worldSpecificRules += "\n- 强制场景切换：在同一个场景中最多进行5轮对话，第5轮后必须强制切换场景或更新任务";
 
         return commonRules + worldSpecificRules;
     }
@@ -699,27 +630,27 @@ public class PromptBuilder implements PromptBuilderInterface {
      */
     private String buildAssessmentInstructions(String userAction) {
         return String.format("""
-            ## 📝 评估任务
+            📝 评估任务
             请仔细评估玩家的以下行为："%s"
 
-            ### 评估维度：
+            评估维度：
             1. 规则合规性 (0-1)：行为是否符合世界规则和逻辑
             2. 上下文一致性 (0-1)：行为是否与当前故事上下文一致
             3. 收敛推进度 (0-1)：行为对故事收敛目标的贡献程度
 
-            ### 评估标准：
+            评估标准：
             - 0.8-1.0：优秀，完全符合预期，有助于故事推进（策略：ACCEPT）
             - 0.6-0.8：良好，基本符合，大部分可接受（策略：ADJUST）
             - 0.0-0.6：问题较大，需要修正或拒绝（策略：CORRECT）
 
-            ### 🚀 剧情推进要求（重要）
+            🚀 剧情推进要求（重要）
             - 必须推进剧情：无论评估结果如何，都要在回复中推进故事发展
             - 避免原地打转：不要重复描述相同场景，要引入新元素
             - 创造进展：每次回复都要有新的信息、事件或变化
             - 时间推进：让故事时间自然流动，避免时间停滞
             - 目标导向：始终朝着故事目标或下一个收敛点推进
 
-            ### ⏰ 强制场景切换检查（关键）
+            ⏰ 强制场景切换检查（关键）
             - 轮数统计：系统会自动统计当前场景的对话轮数
             - 第5轮强制切换：当达到第5轮对话时，必须强制进行以下操作之一：
               * 场景转换：移动到新地点、新环境
@@ -729,9 +660,9 @@ public class PromptBuilder implements PromptBuilderInterface {
             - 强制执行：这是硬性要求，不可违反，无论当前对话内容如何
 
 
-            ## 🎯 游戏逻辑整合到评估JSON
+             🎯 游戏逻辑整合到评估JSON
 重要：所有游戏逻辑现在都通过评估JSON中的专门字段来处理，不再使用指令标记
-            ### 骰子系统 - diceRolls字段
+            骰子系统 - diceRolls字段
             当用户行为需要随机性结果时，在评估JSON中添加diceRolls字段：
             ```json
             "diceRolls": [
@@ -745,7 +676,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             ]
             ```
 
-            ### 学习挑战系统 - learningChallenges字段（教育世界专用）
+            学习挑战系统 - learningChallenges字段（教育世界专用）
             当需要验证用户知识时，在评估JSON中添加learningChallenges字段：
             ```json
             "learningChallenges": [
@@ -759,7 +690,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             ]
             ```
 
-            ### 状态更新系统 - stateUpdates字段
+            状态更新系统 - stateUpdates字段
             当需要更新游戏状态时，在评估JSON中添加stateUpdates字段：
             ```json
             "stateUpdates": [
@@ -770,17 +701,17 @@ public class PromptBuilder implements PromptBuilderInterface {
             ]
             ```
 
-            ### 任务系统 - questUpdates字段
+            任务系统 - questUpdates字段
             任务管理通过questUpdates字段处理，包含四个子字段：
             - created: 新创建的任务
             - completed: 已完成的任务  
             - progress: 进度更新的任务
             - expired: 已过期的任务
 
-            ### 世界状态更新 - worldStateUpdates字段
+            世界状态更新 - worldStateUpdates字段
             世界状态变化通过worldStateUpdates字段处理
 
-            ### 记忆更新 - memoryUpdates字段
+            记忆更新 - memoryUpdates字段
             重要记忆信息通过memoryUpdates字段处理，包含：
             - type: 记忆类型（EVENT、CHARACTER、WORLD、SKILL等）
             - content: 记忆内容描述
@@ -804,25 +735,25 @@ JSON字段使用原则：
             [DIALOGUE]
             你的角色对话和叙述内容，使用分号分隔的结构化格式：
             
-            # 环境描述：# 🌸 阳光透过教室的窗户洒在木质课桌上，你坐在靠窗的位置，轻轻整理着新发的校服; # 角色内心独白：# "啊，转学第一天就遇到这么温暖的校园氛围呢！"你微笑着环顾四周，看到走廊上三三两两的学生们正在交谈，远处传来篮球场上的欢呼声; # NPC登场：# 班主任山田老师走进教室，微笑着向你点头示意; # NPC对话：# "主角同学，今天是你的第一天，好好享受高中生活吧！有什么问题随时可以找我。"; # 环境氛围：# 窗外樱花树随风轻摆，仿佛在欢迎你的到来
+            [场景描述]: [具体场景描述]; [角色动作]: [角色行为描述]; [NPC对话]: "[NPC对话内容]"; [环境变化]: [环境变化描述]; [声音效果]: [声音描述]; [角色内心独白]: "[角色心理活动]"; [NPC登场]: [NPC出现描述]; [环境氛围]: [氛围描述]
             [/DIALOGUE]
             
             [WORLD]
             世界状态信息，使用分号分隔的键值对格式：
-📍 当前位置: 清水高中1年A班教室; 🌅 时间: 上午9:00，开学第一天; 🌤️ 天气: 晴朗，微风，樱花飘落; 📚 环境: 教室整洁明亮，黑板上写着"欢迎新同学"，同学们正在互相认识; 👥 NPC: 山田老师（班主任）：温和亲切，正在观察新同学 ； 小林美咲（同桌）：活泼开朗，正对你微笑 ；佐藤健太（前排男生）：篮球社成员，正在和朋友讨论下午的训练; ⚡ 特殊事件: 校园祭筹备委员会正在招募新成员，公告栏上有醒目海报
+            📍 当前位置: [具体位置]; 🌅 时间: [时间描述]; 🌤️ 天气: [天气状况]; 📚 环境: [环境描述]; 👥 NPC: [NPC状态描述]; ⚡ 特殊事件: [事件描述]
             [/WORLD]
 
             [QUESTS]
             任务信息，使用分号分隔的任务列表格式：
-            1. 适应新环境：在开学第一天结识至少一位新朋友，进度0/1（奖励：经验值50、友情点数+1）; 2. 探索校园：参观至少三个不同的校园地点，进度0/3（奖励：经验值30、校园地图x1）; 3. 加入社团：选择并加入一个感兴趣的社团，进度0/1（奖励：经验值100、社团徽章x1）
+            1. [任务标题]: [任务描述]，进度[当前/目标]（奖励：[奖励描述]）; 2. [任务标题]: [任务描述]，进度[当前/目标]（奖励：[奖励描述]）; 3. [任务标题]: [任务描述]，进度[当前/目标]（奖励：[奖励描述]）
             [/QUESTS]
 
             [CHOICES]
             行动选择，必须使用分号(;)分隔每个选择项，格式为：数字. 标题 - 描述：
-            1. 与同桌小林美咲打招呼 - 开始建立第一段校园友谊; 2. 查看校园祭海报 - 了解即将到来的重要活动; 3. 参观学校设施 - 去图书馆、体育馆或实验室看看; 4. 询问班主任关于社团信息 - 获取更多社团选择; 5. 自由行动 - 描述你想进行的其他活动
+            1. [选择标题] - [选择描述]; 2. [选择标题] - [选择描述]; 3. [选择标题] - [选择描述]; 4. [选择标题] - [选择描述]; 5. 自由行动 - 描述你想进行的其他活动
             [/CHOICES]
 
-            §{"ruleCompliance": 0.95, "contextConsistency": 0.90, "convergenceProgress": 0.70, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "查看状态是合理行为，有助于玩家了解当前处境", "suggestedActions": ["与同桌建立联系", "探索校园环境", "考虑加入社团"], "convergenceHints": ["友情发展是重要主题", "社团活动是成长关键"], "questUpdates": {"created": [{"questId": "quest_001", "title": "适应新环境", "description": "在开学第一天结识至少一位新朋友", "rewards": {"exp":50, "items": ["友情点数+1"]}}], "completed": [], "progress": [], "expired": []}, "worldStateUpdates": {"currentLocation": "清水高中1年A班教室", "environment": "晴朗，樱花飘落，开学第一天氛围", "npcs": [{"name": "山田老师", "status": "正在观察新同学"}, {"name": "小林美咲", "status": "对主角微笑"}, {"name": "佐藤健太", "status": "讨论篮球训练"}]}, "memoryUpdates": [{"type": "EVENT", "content": "转学第一天，来到清水高中", "importance": 0.6}, {"type": "CHARACTER", "content": "与同桌小林美咲初次见面", "importance": 0.5}], "arcUpdates": {"currentArcName": "开学第一天", "currentArcStartRound": 1, "totalRounds": 1}, "convergenceStatusUpdates": {"progress": 0.1, "nearestScenarioId": "story_convergence_1", "nearestScenarioTitle": "转校生的到来", "distanceToNearest": 0.8, "scenarioProgress": {"story_convergence_1": 0.1, "story_convergence_2": 0.0, "main_convergence": 0.0}, "activeHints": ["适应新环境", "建立人际关系"]}}§
+            §{"ruleCompliance": [0-1], "contextConsistency": [0-1], "convergenceProgress": [0-1], "overallScore": [0-1], "strategy": "[ACCEPT|ADJUST|CORRECT]", "assessmentNotes": "[评估说明]", "suggestedActions": ["[建议1]", "[建议2]"], "convergenceHints": ["[提示1]", "[提示2]"], "questUpdates": {"created": [{"questId": "[任务ID]", "title": "[任务标题]", "description": "[任务描述]", "rewards": {"exp": [数值], "items": ["[物品]"]}}], "completed": [], "progress": [], "expired": []}, "worldStateUpdates": {"currentLocation": "[位置]", "environment": "[环境描述]", "npcs": [{"name": "[NPC名称]", "status": "[状态]"}]}, "memoryUpdates": [{"type": "[EVENT|CHARACTER|WORLD|SKILL]", "content": "[记忆内容]", "importance": [0-1]}], "arcUpdates": {"currentArcName": "[情节名称]", "currentArcStartRound": [轮数], "totalRounds": [总轮数]}, "convergenceStatusUpdates": {"progress": [0-1], "nearestScenarioId": "[场景ID]", "nearestScenarioTitle": "[场景标题]", "distanceToNearest": [0-1], "scenarioProgress": {"[场景ID]": [0-1]}, "activeHints": ["[提示1]", "[提示2]"]}}§
              
 关键格式要求：
             1. 必须使用[DIALOGUE][/DIALOGUE]、[WORLD][/WORLD]、[QUESTS][/QUESTS]、[CHOICES][/CHOICES]标记
@@ -842,20 +773,20 @@ JSON字段使用原则：
 
             • DIALOGUE块：
               - 包含角色对话、叙述描述和场景描写
-              - 使用分号分隔的结构化格式：# 标签名：# 内容; # 标签名：# 内容; # 标签名：# 内容
+              - 使用分号分隔的结构化格式：标签名： 内容;  标签名：内容;  标签名： 内容
               - 支持多种分号：英文分号(;)、中文分号(；)、全角分号(；)
-              - 支持markdown格式：# 强调内容#、"引号对话"
+              - 支持markdown格式："引号对话"
               - 可以包含表情符号和动作描写
               - 内容应该生动有趣，便于前端渲染
               - 结构化标签说明：
-                # 场景描述：# - 描述当前环境和背景
-                # 角色动作：# - 描述玩家角色的行为
-                # NPC对话：# - NPC的对话内容
-                # 环境变化：# - 环境状态的改变
-                # 声音效果：# - 听觉描述
-                # 角色内心独白：# - 角色的心理活动
-                # NPC登场：# - NPC的出现和介绍
-                # 环境氛围：# - 整体氛围和感觉
+               场景描述： - 描述当前环境和背景
+                角色动作： - 描述玩家角色的行为
+                NPC对话： - NPC的对话内容
+                环境变化：- 环境状态的改变
+                声音效果：- 听觉描述
+                角色内心独白：- 角色的心理活动
+                NPC登场：- NPC的出现和介绍
+                环境氛围： - 整体氛围和感觉
               - 重要：必须使用分号分隔不同的对话模块，这是硬性格式要求
 
 
@@ -892,7 +823,7 @@ JSON字段使用原则：
               - 包含评估分数、策略、建议等字段
               - 用§包裹，与其他标记块分离
             
-            ### 任务评估要求（重要）
+             任务评估要求（重要）
             - 在每次评估时，必须仔细检查所有当前活跃任务
             - 根据用户行为和剧情发展，判断每个活跃任务的状态：
               * 是否已完成（用户行为满足了任务完成条件）
@@ -910,7 +841,7 @@ JSON字段使用原则：
               * QUESTS块只应显示当前活跃的、未完成的任务
 
             
-            ### 任务更新格式说明
+             任务更新格式说明
             - questUpdates字段用于记录任务状态变化，包含四个子字段：
               - created: 新创建的任务数组，每个任务包含questId、title、description和rewards
               - completed: 已完成的任务数组，每个任务包含questId和rewards
@@ -928,7 +859,7 @@ JSON字段使用原则：
               * 过期的任务（expired）必须从QUESTS块中移除
               * 确保QUESTS块只显示当前活跃的、未完成的任务
 
-            ### 世界状态更新说明
+             世界状态更新说明
             - worldStateUpdates字段用于记录世界状态的变化，包含：
               - currentLocation: 当前位置变化
               - environment: 环境状态变化（天气、时间、氛围等）
@@ -946,7 +877,7 @@ JSON字段使用原则：
             - 正确示例：角色已有["警徽x2", "线索笔记x1"]，本次任务获得"警徽x1"和"新技能x1"，则items应写["警徽x1", "新技能x1"]
             - 错误示例：不要写成["警徽x2", "线索笔记x1", "警徽x1", "新技能x1"]（这样会重复）
             
-            ### 情节更新说明 - arcUpdates字段
+             情节更新说明 - arcUpdates字段
             - arcUpdates字段用于记录情节相关的更新信息，包含：
               - currentArcName: 当前情节名称（当情节发生变化时更新）
               - currentArcStartRound: 当前情节起始轮数（当新情节开始时更新）
@@ -955,7 +886,7 @@ JSON字段使用原则：
             - 情节名称应该简洁明了，反映当前故事的主要主题或阶段
             - 只有在情节确实发生变化时才包含arcUpdates字段
 
-            ### 收敛状态更新说明 - convergenceStatusUpdates字段
+             收敛状态更新说明 - convergenceStatusUpdates字段
             - convergenceStatusUpdates字段用于记录故事收敛状态的更新信息，包含：
               - progress: 整体收敛进度 (0-1)，表示故事向结局推进的程度
               - progressIncrement: 进度增量，用于增加收敛进度
@@ -968,7 +899,7 @@ JSON字段使用原则：
             - 进度值应该反映当前故事发展的实际状态
             - 只有在收敛状态确实发生变化时才包含convergenceStatusUpdates字段
 
-            ### 评估JSON字段要求
+             评估JSON字段要求
             - 评估JSON必须使用以下英文字段名：
               * 基础评估字段：ruleCompliance、contextConsistency、convergenceProgress、overallScore、strategy、assessmentNotes、suggestedActions、convergenceHints
               * 游戏逻辑字段：questUpdates、worldStateUpdates、diceRolls、learningChallenges、stateUpdates、memoryUpdates、arcUpdates、convergenceStatusUpdates
@@ -1004,7 +935,7 @@ JSON字段使用原则：
                 // 添加收敛场景详细信息（从数据库获取）
                 String convergenceScenarios = template.getConvergenceScenarios();
                 if (convergenceScenarios != null && !convergenceScenarios.trim().isEmpty() && !convergenceScenarios.equals("{}")) {
-                    convergenceInfo.append("## 📖 故事收敛节点\n");
+                    convergenceInfo.append("📖 故事收敛节点\n");
                     convergenceInfo.append("根据你的选择和行为，故事将向以下收敛点发展：\n");
                     convergenceInfo.append(parseConvergenceScenarios(convergenceScenarios));
                     convergenceInfo.append("\n\n");
@@ -1013,20 +944,20 @@ JSON字段使用原则：
                 // 添加收敛规则（从数据库获取）
                 String convergenceRules = template.getConvergenceRules();
                 if (convergenceRules != null && !convergenceRules.trim().isEmpty() && !convergenceRules.equals("{}")) {
-                    convergenceInfo.append("## ⚖️ 收敛规则\n");
+                    convergenceInfo.append("⚖️ 收敛规则\n");
                     convergenceInfo.append(parseConvergenceRules(convergenceRules));
                     convergenceInfo.append("\n\n");
                 }
 
                 convergenceInfo.append("""
-                    ## 🎯 推进要求
+                     🎯 推进要求
                     - 持续进展：每次交互都要推进故事，避免重复或停滞
                     - 引入新元素：主动引入新角色、事件、地点或挑战
                     - 时间流动：让故事时间自然推进，创造紧迫感
                     - 目标明确：始终朝着明确的故事情节或结局推进
                     - 避免循环：不要在同一场景或情节中反复打转
 
-                    ## ⏰ 强制场景切换规则（必须遵守）
+                     ⏰ 强制场景切换规则（必须遵守）
                     - 5轮限制：在同一个场景中最多进行5轮对话
                     - 强制切换：第5轮后必须强制进行场景切换或任务更新
                     - 切换方式：场景转换、任务更新、事件触发、时间跳跃
@@ -1047,14 +978,14 @@ JSON字段使用原则：
 收敛场景：故事会根据你的选择走向不同的结局
 进度追踪：你的每个决定都会影响故事的发展
 
-            ## 🎯 推进要求
+             🎯 推进要求
             - 持续进展：每次交互都要推进故事，避免重复或停滞
             - 引入新元素：主动引入新角色、事件、地点或挑战
             - 时间流动：让故事时间自然推进，创造紧迫感
             - 目标明确：始终朝着明确的故事情节或结局推进
             - 避免循环：不要在同一场景或情节中反复打转
 
-            ## ⏰ 强制场景切换规则（必须遵守）
+             ⏰ 强制场景切换规则（必须遵守）
             - 5轮限制：在同一个场景中最多进行5轮对话
             - 强制切换：第5轮后必须强制进行场景切换或任务更新
             - 切换方式：场景转换、任务更新、事件触发、时间跳跃
@@ -1064,28 +995,6 @@ JSON字段使用原则：
             """;
     }
     
-    /**
-     * 构建简化的快速提示
-     */
-    @Override
-    public String buildQuickPrompt(String worldType, String message) {
-        String roleDescription = switch (worldType) {
-            case "fantasy_adventure" -> "奇幻世界的游戏主持人";
-            case "educational" -> "寓教于乐的智慧导师";
-            case "western_magic" -> "西方魔幻世界的贤者";
-            case "martial_arts" -> "江湖中的前辈高人";
-            case "japanese_school" -> "校园生活向导";
-            default -> "智慧的向导";
-        };
-
-        return String.format("""
-            你是%s。请用角色扮演的方式回应用户，保持世界观的一致性，
-            提供生动的描述和有意义的互动。如果需要随机判定，使用骰子指令。
-
-
-            用户消息：%s
-            """, roleDescription, message);
-    }
     
     /**
      * 解析收敛场景JSON数据

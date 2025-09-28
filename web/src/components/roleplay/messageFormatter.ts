@@ -235,9 +235,9 @@ const formatSimplifiedTaskItems = (lines: string[]): string => {
       taskTitle = taskTitle.replace(/\*\*/g, '');
       
       result += `
-        <div class="border-l-4 border-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-r-lg shadow-md">
-          <div class="font-bold text-sm mb-2">${taskTitle}</div>
-          <div class="text-gray-600 dark:text-gray-400 text-sm">${taskDescription}</div>
+        <div class="border-l-4 border-green-400 bg-green-50/80 dark:bg-green-900/30 p-3 rounded-r-lg shadow-md">
+          <div class="font-bold text-sm mb-2 text-gray-800 dark:text-gray-200">${taskTitle}</div>
+          <div class="text-gray-600 dark:text-gray-300 text-sm">${taskDescription}</div>
         </div>
       `;
     } else if (line.startsWith('*') && (line.includes('提示') || line.includes('奖励'))) {
@@ -251,8 +251,8 @@ const formatSimplifiedTaskItems = (lines: string[]): string => {
     } else if (line.trim()) {
       // 其他非空行作为普通任务显示
       result += `
-        <div class="border-l-4 border-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-r-lg shadow-md">
-          <div class="text-gray-600 dark:text-gray-400 text-sm">${line}</div>
+        <div class="border-l-4 border-green-400 bg-green-50/80 dark:bg-green-900/30 p-3 rounded-r-lg shadow-md">
+          <div class="text-gray-600 dark:text-gray-300 text-sm">${line}</div>
         </div>
       `;
     }
@@ -310,16 +310,16 @@ const formatSingleTask = (taskText: string, type: 'active' | 'completed'): strin
     const line = lines[i].trim();
     if (line.startsWith('- ')) {
       const detail = line.substring(2);
-      details += `<div class="text-gray-600 dark:text-gray-400 text-sm mb-1">${detail}</div>`;
+      details += `<div class="text-gray-600 dark:text-gray-300 text-sm mb-1">${detail}</div>`;
     }
   }
   
   const borderColor = type === 'active' ? 'border-green-400' : 'border-blue-400';
-  const bgColor = type === 'active' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-blue-50 dark:bg-blue-900/20';
+  const bgColor = type === 'active' ? 'bg-green-50/80 dark:bg-green-900/30' : 'bg-blue-50/80 dark:bg-blue-900/30';
   
   const result = `
     <div class="border-l-4 ${borderColor} ${bgColor} p-3 rounded-r-lg shadow-md">
-      <div class="font-bold text-sm mb-2">${title}</div>
+      <div class="font-bold text-sm mb-2 text-gray-800 dark:text-gray-200">${title}</div>
       ${details}
     </div>
   `;
@@ -356,8 +356,8 @@ export const formatQuestContent = (questData: any): string => {
               <div class="font-bold text-sm mb-2">${idx + 1}. ${quest.title || quest.description || '未命名任务'}</div>
               ${quest.description ? `<div class="text-gray-500 dark:text-gray-300 mb-2 text-sm">${quest.description}</div>` : ''}
               <div class="flex flex-wrap gap-3 text-sm">
-                ${quest.progress ? `<span class="font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">进度: ${quest.progress}</span>` : ''}
-                ${quest.rewards ? `<span class="text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/30 px-2 py-1 rounded">奖励: ${JSON.stringify(quest.rewards).replace(/"/g, '')}</span>` : ''}
+                ${quest.progress ? `<span class="font-semibold text-green-600 dark:text-green-400 bg-green-100/80 dark:bg-green-900/40 px-2 py-1 rounded">进度: ${quest.progress}</span>` : ''}
+                ${quest.rewards ? `<span class="text-gray-600 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-800/40 px-2 py-1 rounded">奖励: ${JSON.stringify(quest.rewards).replace(/"/g, '')}</span>` : ''}
                 ${quest.status ? `<span class="px-2 py-1 rounded text-sm font-bold ${quest.status === 'ACTIVE' ? 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 shadow-sm' : quest.status === 'COMPLETED' ? 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 shadow-sm' : 'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm'}"">${quest.status}</span>` : ''}
               </div>
             </div>
@@ -463,11 +463,11 @@ const formatKeyValuePair = (key: string, value: string, emoji: string): string =
     const valueItems = value.split(/[;；]/).map(item => item.trim()).filter(item => item);
     
     const formattedValueItems = valueItems.map(item => 
-      `<div class="bg-white/60 dark:bg-gray-700/40 rounded p-2 border border-gray-200/50 dark:border-gray-600/30">
+      `      <div class="bg-gray-50/80 dark:bg-gray-700/60 rounded p-2 border border-gray-200/50 dark:border-gray-600/30">
         <div class="flex items-start gap-2">
           <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
           <div class="flex-1">
-            <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
+            <div class="text-gray-700 dark:text-gray-200 leading-relaxed text-sm">
               ${item}
             </div>
           </div>
@@ -489,11 +489,11 @@ const formatKeyValuePair = (key: string, value: string, emoji: string): string =
   else if (value.includes('|')) {
     const valueItems = value.split('|').map(item => item.trim()).filter(item => item);
     const formattedValueItems = valueItems.map(item => 
-      `<div class="bg-purple-50/40 dark:bg-purple-900/20 rounded p-2 border border-purple-200/50 dark:border-purple-600/30">
+      `      <div class="bg-purple-50/40 dark:bg-purple-900/30 rounded p-2 border border-purple-200/50 dark:border-purple-600/30">
         <div class="flex items-start gap-2">
           <div class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0"></div>
           <div class="flex-1">
-            <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
+            <div class="text-gray-700 dark:text-gray-200 leading-relaxed text-sm">
               ${item}
             </div>
           </div>
@@ -840,7 +840,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             场景描述
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(description)}
           </div>
         </div>
@@ -854,7 +854,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             角色动作
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(action)}
           </div>
         </div>
@@ -868,7 +868,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             ${section.includes('低语') ? 'NPC低语' : 'NPC对话'}
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(dialogue)}
           </div>
         </div>
@@ -882,7 +882,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             环境变化
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(change)}
           </div>
         </div>
@@ -896,7 +896,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             声音效果
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(sound)}
           </div>
         </div>
@@ -910,7 +910,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             角色内心独白
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(monologue)}
           </div>
         </div>
@@ -924,7 +924,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             NPC登场
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(entrance)}
           </div>
         </div>
@@ -938,7 +938,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             环境氛围
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(atmosphere)}
           </div>
         </div>
@@ -952,7 +952,7 @@ export const formatDialogueContent = (content: string): string => {
           <div class="dialogue-label px-2 py-1 text-xs font-bold text-gray-600/70 dark:text-gray-400/70 rounded-full">
             NPC低语
           </div>
-          <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-shadow-soft">
+          <div class="text-gray-800 dark:text-gray-100 leading-relaxed text-shadow-soft">
             ${formatTextContent(whisper)}
           </div>
         </div>
@@ -962,7 +962,7 @@ export const formatDialogueContent = (content: string): string => {
     // 如果没有匹配到特定类型，作为普通对话处理
     return `
       <div class="p-4 rounded-lg mb-3 bg-gray-50 dark:bg-gray-800/50 shadow-advanced dark:shadow-advanced-dark">
-        <div class="text-gray-700 dark:text-gray-300 leading-relaxed">
+        <div class="text-gray-800 dark:text-gray-100 leading-relaxed">
           ${formatTextContent(section)}
         </div>
       </div>
@@ -977,13 +977,13 @@ const formatTextContent = (text: string): string => {
   let formattedText = text;
 
   // 处理粗体文本
-  formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-gray-800 dark:text-gray-200">$1</span>');
+  formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-gray-900 dark:text-gray-50">$1</span>');
   
   // 处理斜体文本
-  formattedText = formattedText.replace(/\*(.*?)\*/g, '<em class="italic text-gray-700 dark:text-gray-300">$1</em>');
+  formattedText = formattedText.replace(/\*(.*?)\*/g, '<em class="italic text-gray-800 dark:text-gray-100">$1</em>');
   
   // 处理行内代码
-  formattedText = formattedText.replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono text-gray-800 dark:text-gray-200">$1</code>');
+  formattedText = formattedText.replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-600 px-1 py-0.5 rounded text-xs font-mono text-gray-800 dark:text-gray-100">$1</code>');
   
   // 处理换行
   formattedText = formattedText.replace(/\n/g, '<br>');

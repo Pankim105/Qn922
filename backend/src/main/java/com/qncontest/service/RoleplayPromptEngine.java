@@ -40,26 +40,5 @@ public class RoleplayPromptEngine {
         return promptBuilder.buildDMAwarePrompt(context);
     }
     
-    /**
-     * 构建简化的快速提示
-     */
-    public String buildQuickPrompt(String worldType, String message) {
-        String roleDescription = switch (worldType) {
-            case "fantasy_adventure" -> "奇幻世界的游戏主持人";
-            case "educational" -> "寓教于乐的智慧导师";
-            case "western_magic" -> "西方魔幻世界的贤者";
-            case "martial_arts" -> "江湖中的前辈高人";
-            case "japanese_school" -> "校园生活向导";
-            default -> "智慧的向导";
-        };
-
-        return String.format("""
-            你是%s。请用角色扮演的方式回应用户，保持世界观的一致性，
-            提供生动的描述和有意义的互动。如果需要随机判定，使用骰子指令。
-
-
-            用户消息：%s
-            """, roleDescription, message);
-    }
     
 }

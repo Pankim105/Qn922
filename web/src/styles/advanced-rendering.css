@@ -1,5 +1,34 @@
 /* 高级材质和纹理渲染系统 */
 
+/* 导航栏增强可见性 */
+.navbar-enhanced {
+  background-color: hsl(var(--background) / 0.98) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  box-shadow: 0 1px 3px 0 hsl(var(--foreground) / 0.1), 0 1px 2px -1px hsl(var(--foreground) / 0.1);
+  z-index: 100 !important;
+}
+
+.dark .navbar-enhanced {
+  background-color: hsl(var(--background) / 0.95) !important;
+  box-shadow: 0 1px 3px 0 hsl(var(--foreground) / 0.2), 0 1px 2px -1px hsl(var(--foreground) / 0.2);
+}
+
+/* 当内容滚动时增强导航栏可见性 */
+.navbar-scrolled {
+  background-color: hsl(var(--background)) !important;
+  backdrop-filter: blur(16px) saturate(200%);
+  -webkit-backdrop-filter: blur(16px) saturate(200%);
+  border-bottom: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 6px -1px hsl(var(--foreground) / 0.1), 0 2px 4px -2px hsl(var(--foreground) / 0.1);
+  z-index: 100 !important;
+}
+
+.dark .navbar-scrolled {
+  box-shadow: 0 4px 6px -1px hsl(var(--foreground) / 0.2), 0 2px 4px -2px hsl(var(--foreground) / 0.2);
+}
+
 /* 标签绝对定位样式 */
 .dialogue-label {
   position: absolute !important;
@@ -85,13 +114,15 @@
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   background-color: rgba(255, 255, 255, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.125);
+  color: #1f2937; /* 确保文字在浅色背景上清晰可见 */
 }
 
 .glass-effect-dark {
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  background-color: rgba(17, 25, 40, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.125);
+  background-color: rgba(17, 25, 40, 0.85); /* 增加不透明度提高对比度 */
+  border: 1px solid rgba(255, 255, 255, 0.2); /* 增加边框对比度 */
+  color: #f9fafb; /* 确保文字在深色背景上清晰可见 */
 }
 
 /* 纸张质感 */
@@ -100,6 +131,7 @@
     radial-gradient(circle at 1px 1px, rgba(0,0,0,0.15) 1px, transparent 0);
   background-size: 20px 20px;
   background-color: #fefefe;
+  color: #1f2937; /* 确保文字在浅色背景上清晰可见 */
   position: relative;
 }
 
@@ -122,6 +154,7 @@
     radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0);
   background-size: 20px 20px;
   background-color: #1a1a1a;
+  color: #f9fafb; /* 确保文字在深色背景上清晰可见 */
 }
 
 .paper-texture-dark::before {
@@ -147,6 +180,7 @@
     #d0d0d0 75%, 
     #e8e8e8 100%);
   background-size: 20px 20px;
+  color: #1f2937; /* 确保文字在浅色背景上清晰可见 */
   position: relative;
   box-shadow: 
     inset 0 1px 0 rgba(255,255,255,0.6),
@@ -175,6 +209,7 @@
     #1a1a1a 75%, 
     #2a2a2a 100%);
   background-size: 20px 20px;
+  color: #f9fafb; /* 确保文字在深色背景上清晰可见 */
   box-shadow: 
     inset 0 1px 0 rgba(255,255,255,0.1),
     inset 0 -1px 0 rgba(0,0,0,0.3),
@@ -280,6 +315,7 @@
     #fef9d7 75%, 
     #a8edea 100%);
   background-size: 400% 400%;
+  color: #1f2937; /* 确保文字在浅色渐变背景上清晰可见 */
   animation: gradientShift 10s ease infinite;
 }
 
@@ -301,8 +337,16 @@
   text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.dark .text-shadow-soft {
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5); /* 深色模式下增强阴影 */
+}
+
 .text-shadow-strong {
   text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.dark .text-shadow-strong {
+  text-shadow: 0 4px 8px rgba(0,0,0,0.7); /* 深色模式下增强阴影 */
 }
 
 /* 特殊字符装饰 */
@@ -610,6 +654,13 @@
   background-clip: text;
 }
 
+.dark .text-gradient {
+  background: linear-gradient(135deg, #8b9cf7 0%, #9f7aea 100%); /* 深色模式下使用更亮的颜色 */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .text-gradient-warm {
   background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
   -webkit-background-clip: text;
@@ -617,8 +668,22 @@
   background-clip: text;
 }
 
+.dark .text-gradient-warm {
+  background: linear-gradient(135deg, #ffb3b8 0%, #fdd5f0 100%); /* 深色模式下使用更亮的颜色 */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .text-gradient-cool {
   background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dark .text-gradient-cool {
+  background: linear-gradient(135deg, #b8f0ed 0%, #fde0e6 100%); /* 深色模式下使用更亮的颜色 */
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

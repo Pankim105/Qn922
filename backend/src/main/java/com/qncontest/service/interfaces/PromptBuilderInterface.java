@@ -22,11 +22,4 @@ public interface PromptBuilderInterface {
      */
     String buildDMAwarePrompt(PromptBuilder.RoleplayContext context);
     
-    /**
-     * 构建简化的快速提示
-     * @param worldType 世界类型
-     * @param message 用户消息
-     * @return 构建的提示词
-     */
-    String buildQuickPrompt(String worldType, String message);
 }
