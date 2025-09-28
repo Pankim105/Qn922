@@ -125,6 +125,3 @@ docs/
 - 联系项目维护者
 - 查看[故障排除指南](maintenance/troubleshooting.md)
 
----
-
-**维护者**: QN Contest Team
