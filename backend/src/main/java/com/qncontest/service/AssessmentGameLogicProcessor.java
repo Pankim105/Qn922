@@ -1234,93 +1234,142 @@ public class AssessmentGameLogicProcessor {
             Map<String, Object> questUpdates = (Map<String, Object>) questUpdatesObj;
             boolean questFieldsUpdated = false;
             
-            // 更新活跃任务列表
-            List<Object> activeQuestsList = new ArrayList<>();
+            // 获取现有活跃任务列表
+            String currentActiveQuests = session.getActiveQuests();
+            Map<String, Object> existingActiveQuestsMap = new HashMap<>();
             
-            // 添加新创建的任务
+            if (currentActiveQuests != null && !currentActiveQuests.isEmpty()) {
+                try {
+                    List<Object> existingList = objectMapper.readValue(currentActiveQuests, List.class);
+                    // 转换为Map，以questId为key，便于去重和更新
+                    for (Object quest : existingList) {
+                        if (quest instanceof Map) {
+                            String questId = getStringValue((Map<String, Object>) quest, "questId");
+                            if (questId != null) {
+                                existingActiveQuestsMap.put(questId, quest);
+                            }
+                        }
+                    }
+                    logger.info("📋 现有活跃任务数量: {}", existingActiveQuestsMap.size());
+                } catch (Exception e) {
+                    logger.warn("⚠️ 解析现有活跃任务失败: {}", e.getMessage());
+                }
+            }
+            
+            // 处理新创建的任务
             if (questUpdates.containsKey("created")) {
                 List<?> created = (List<?>) questUpdates.get("created");
-                activeQuestsList.addAll(created);
-                logger.info("📝 添加新创建任务到活跃列表: {}", created.size());
-            }
-            
-            // 添加进度更新的任务
-            if (questUpdates.containsKey("progress")) {
-                List<?> progress = (List<?>) questUpdates.get("progress");
-                activeQuestsList.addAll(progress);
-                logger.info("📝 添加进度更新任务到活跃列表: {}", progress.size());
-            }
-            
-            // 更新活跃任务字段
-            if (!activeQuestsList.isEmpty()) {
-                String currentActiveQuests = session.getActiveQuests();
-                List<Object> existingActiveQuests = new ArrayList<>();
+                logger.info("📝 处理新创建任务: {}", created.size());
                 
-                if (currentActiveQuests != null && !currentActiveQuests.isEmpty()) {
-                    try {
-                        existingActiveQuests = objectMapper.readValue(currentActiveQuests, List.class);
-                    } catch (Exception e) {
-                        logger.warn("⚠️ 解析现有活跃任务失败: {}", e.getMessage());
+                for (Object quest : created) {
+                    if (quest instanceof Map) {
+                        String questId = getStringValue((Map<String, Object>) quest, "questId");
+                        if (questId != null) {
+                            existingActiveQuestsMap.put(questId, quest);
+                            logger.info("➕ 添加新任务: questId={}", questId);
+                        }
                     }
                 }
+            }
+            
+            // 处理进度更新的任务
+            if (questUpdates.containsKey("progress")) {
+                List<?> progress = (List<?>) questUpdates.get("progress");
+                logger.info("📈 处理进度更新任务: {}", progress.size());
                 
-                // 合并现有任务和新任务
-                existingActiveQuests.addAll(activeQuestsList);
-                logger.info("🔍 合并后的活跃任务列表: 总数={}, 内容={}", existingActiveQuests.size(), existingActiveQuests);
+                for (Object quest : progress) {
+                    if (quest instanceof Map) {
+                        String questId = getStringValue((Map<String, Object>) quest, "questId");
+                        if (questId != null) {
+                            // 如果任务已存在，更新进度；如果不存在，添加新任务
+                            existingActiveQuestsMap.put(questId, quest);
+                            logger.info("🔄 更新任务进度: questId={}", questId);
+                        }
+                    }
+                }
+            }
                 
                 // 移除已完成的任务
                 if (questUpdates.containsKey("completed")) {
                     List<?> completed = (List<?>) questUpdates.get("completed");
-                    logger.info("🔍 开始处理已完成任务: 数量={}", completed.size());
+                logger.info("✅ 处理已完成任务: {}", completed.size());
                     
                     for (Object completedQuest : completed) {
                         if (completedQuest instanceof Map) {
                             String completedQuestId = getStringValue((Map<String, Object>) completedQuest, "questId");
-                            logger.info("🔍 处理已完成任务: questId={}", completedQuestId);
-                            
-                            int beforeSize = existingActiveQuests.size();
-                            existingActiveQuests.removeIf(quest -> {
-                                if (quest instanceof Map) {
-                                    String questId = getStringValue((Map<String, Object>) quest, "questId");
-                                    boolean shouldRemove = completedQuestId != null && completedQuestId.equals(questId);
-                                    if (shouldRemove) {
-                                        logger.info("🗑️ 从活跃任务列表中移除: questId={}", questId);
-                                    }
-                                    return shouldRemove;
-                                }
-                                return false;
-                            });
-                            int afterSize = existingActiveQuests.size();
-                            logger.info("🔍 任务移除结果: 移除前={}, 移除后={}, 实际移除={}", beforeSize, afterSize, beforeSize - afterSize);
+                        if (completedQuestId != null && existingActiveQuestsMap.containsKey(completedQuestId)) {
+                            existingActiveQuestsMap.remove(completedQuestId);
+                            logger.info("🗑️ 移除已完成任务: questId={}", completedQuestId);
                         }
                     }
                 }
+            }
+            
+            // 移除过期的任务
+            if (questUpdates.containsKey("expired")) {
+                List<?> expired = (List<?>) questUpdates.get("expired");
+                logger.info("⏰ 处理过期任务: {}", expired.size());
                 
-                String newActiveQuestsJson = objectMapper.writeValueAsString(existingActiveQuests);
+                for (Object expiredQuest : expired) {
+                    if (expiredQuest instanceof Map) {
+                        String expiredQuestId = getStringValue((Map<String, Object>) expiredQuest, "questId");
+                        if (expiredQuestId != null && existingActiveQuestsMap.containsKey(expiredQuestId)) {
+                            existingActiveQuestsMap.remove(expiredQuestId);
+                            logger.info("🗑️ 移除过期任务: questId={}", expiredQuestId);
+                        }
+                    }
+                }
+            }
+            
+            // 更新活跃任务字段
+            if (!existingActiveQuestsMap.isEmpty() || questUpdates.containsKey("completed") || questUpdates.containsKey("expired")) {
+                List<Object> finalActiveQuests = new ArrayList<>(existingActiveQuestsMap.values());
+                String newActiveQuestsJson = objectMapper.writeValueAsString(finalActiveQuests);
                 session.setActiveQuests(newActiveQuestsJson);
                 questFieldsUpdated = true;
-                logger.info("✅ 更新活跃任务列表: 总数={}", existingActiveQuests.size());
+                logger.info("✅ 更新活跃任务列表: 总数={}", finalActiveQuests.size());
             }
             
             // 更新已完成任务列表
             if (questUpdates.containsKey("completed")) {
                 List<?> completed = (List<?>) questUpdates.get("completed");
                 String currentCompletedQuests = session.getCompletedQuests();
-                List<Object> existingCompletedQuests = new ArrayList<>();
+                Map<String, Object> existingCompletedQuestsMap = new HashMap<>();
                 
                 if (currentCompletedQuests != null && !currentCompletedQuests.isEmpty()) {
                     try {
-                        existingCompletedQuests = objectMapper.readValue(currentCompletedQuests, List.class);
+                        List<Object> existingList = objectMapper.readValue(currentCompletedQuests, List.class);
+                        // 转换为Map，以questId为key，便于去重
+                        for (Object quest : existingList) {
+                            if (quest instanceof Map) {
+                                String questId = getStringValue((Map<String, Object>) quest, "questId");
+                                if (questId != null) {
+                                    existingCompletedQuestsMap.put(questId, quest);
+                                }
+                            }
+                        }
+                        logger.info("📋 现有完成任务数量: {}", existingCompletedQuestsMap.size());
                     } catch (Exception e) {
                         logger.warn("⚠️ 解析现有完成任务失败: {}", e.getMessage());
                     }
                 }
                 
-                existingCompletedQuests.addAll(completed);
-                String newCompletedQuestsJson = objectMapper.writeValueAsString(existingCompletedQuests);
+                // 添加新完成的任务（去重）
+                for (Object quest : completed) {
+                    if (quest instanceof Map) {
+                        String questId = getStringValue((Map<String, Object>) quest, "questId");
+                        if (questId != null) {
+                            existingCompletedQuestsMap.put(questId, quest);
+                            logger.info("✅ 添加完成任务: questId={}", questId);
+                        }
+                    }
+                }
+                
+                List<Object> finalCompletedQuests = new ArrayList<>(existingCompletedQuestsMap.values());
+                String newCompletedQuestsJson = objectMapper.writeValueAsString(finalCompletedQuests);
                 session.setCompletedQuests(newCompletedQuestsJson);
                 questFieldsUpdated = true;
-                logger.info("✅ 更新完成任务列表: 总数={}", existingCompletedQuests.size());
+                logger.info("✅ 更新完成任务列表: 总数={}", finalCompletedQuests.size());
             }
             
             if (questFieldsUpdated) {

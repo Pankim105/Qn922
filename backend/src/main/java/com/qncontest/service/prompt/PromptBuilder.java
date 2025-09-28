@@ -201,7 +201,19 @@ public class PromptBuilder implements PromptBuilderInterface {
             logger.debug("获取收敛状态摘要失败: {}", e.getMessage());
         }
 
-        // 第4层：最新事件历史
+        // 第4层：最新对话历史
+        try {
+            String conversationHistory = buildConversationHistory(context.getSessionId());
+            if (!conversationHistory.isEmpty()) {
+                prompt.append("💬 最新对话历史\n");
+                prompt.append(conversationHistory);
+                prompt.append("\n\n");
+            }
+        } catch (Exception e) {
+            logger.debug("获取对话历史失败: {}", e.getMessage());
+        }
+
+        // 第5层：最新事件历史
         try {
             String eventHistory = buildEventHistory(context.getSessionId());
             if (!eventHistory.isEmpty()) {
@@ -213,7 +225,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             logger.debug("获取事件历史失败: {}", e.getMessage());
         }
 
-        // 第5层：记忆上下文（使用简化的记忆上下文构建方法）
+        // 第6层：记忆上下文（使用简化的记忆上下文构建方法）
         try {
             String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
             if (!memoryContext.isEmpty()) {
@@ -333,7 +345,19 @@ public class PromptBuilder implements PromptBuilderInterface {
             }
         }
 
-        // 第4层：最新事件历史
+        // 第4层：最新对话历史
+        try {
+            String conversationHistory = buildConversationHistory(context.getSessionId());
+            if (!conversationHistory.isEmpty()) {
+                prompt.append("💬 最新对话历史\n");
+                prompt.append(conversationHistory);
+                prompt.append("\n\n");
+            }
+        } catch (Exception e) {
+            logger.debug("获取对话历史失败: {}", e.getMessage());
+        }
+
+        // 第5层：最新事件历史
         try {
             String eventHistory = buildEventHistory(context.getSessionId());
             if (!eventHistory.isEmpty()) {
@@ -345,7 +369,7 @@ public class PromptBuilder implements PromptBuilderInterface {
             logger.debug("获取事件历史失败: {}", e.getMessage());
         }
 
-        // 第5层：记忆上下文（使用简化的记忆上下文构建方法）
+        // 第6层：记忆上下文（使用简化的记忆上下文构建方法）
         try {
             String memoryContext = memoryService.buildMemoryContext(context.getSessionId(), context.getCurrentMessage());
             if (!memoryContext.isEmpty()) {
@@ -582,37 +606,6 @@ public class PromptBuilder implements PromptBuilderInterface {
             - 0.6-0.8 (ADJUST)：部分接受，调整影响程度，同时推进剧情
             - 0.0-0.6 (CORRECT)：引导修正，建议替代方案，并推进剧情
             
-            🏗️ 结构化输出格式（用于复杂信息）
-            评估格式如下：
-            §{"ruleCompliance": 0.95, "contextConsistency": 0.90, "convergenceProgress": 0.70, "overallScore": 0.85, "strategy": "ACCEPT", "assessmentNotes": "简要说明", "suggestedActions": ["建议1", "建议2"], "convergenceHints": ["提示1", "提示2"], "questUpdates": {"completed": [{"questId": "quest_001", "rewards": {"exp": 100, "gold": 50, "items": ["铁剑x1"]}}], "progress": [{"questId": "quest_002", "progress": "2/5"}], "expired": [{"questId": "quest_003", "reason": "剧情推进导致任务失效"}]}, "memoryUpdates": [{"type": "EVENT", "content": "主角学会了火球术", "importance": 0.8}, {"type": "CHARACTER", "content": "与精灵王艾伦多建立了友好关系", "importance": 0.7}], "arcUpdates": {"currentArcName": "新情节名称", "currentArcStartRound": 5, "totalRounds": 10}}§
-            
-            ⚠️ 重要提醒：rewards中的items字段只应包含本次任务完成获得的新物品，不要包含角色已有的物品！
-            当需要显示详细的游戏信息时，请使用以下标记格式来组织内容：
-            
-            [DIALOGUE]
-            你的角色对话和叙述内容，使用分号分隔的结构化格式：
-            
-            场景描述：你站在一座古老警局的台阶前，锈迹斑斑的铁门在微风中轻轻摇晃。空气中弥漫着潮湿的尘埃与旧纸张的气息，远处传来钟楼的滴答声，仿佛在倒数着某个即将揭晓的秘密; 角色动作：你的手不自觉地按在腰间的配枪上，指尖触到冰冷的金属——这是你作为警探的第一天; NPC对话："Inspector Panzijian..." 一个沙哑的声音从阴影中传来，"欢迎来到'雾都案卷馆'。这里每一份档案都藏着一条命案的影子，而今晚，有一具尸体正在等你去发现。"; 环境变化：突然，警局大厅的灯闪烁了一下，一束惨白的光线照在墙上的老式挂钟上——时间停在了凌晨3:17; 声音效果：你听见走廊深处传来一声重物坠地的闷响，紧接着，是锁链拖地的声音……; NPC低语："有人在下面。"那声音低语道，"但没人能活着上来。"
-            
-            重要：使用分号(;)、中文分号(；)、全角分号(；)分隔不同的对话模块，每个模块使用 标签名： 的格式。
-            [/DIALOGUE]
-            
-            [WORLD]
-            世界状态信息，使用分号分隔的键值对格式：
-            📍 当前位置: [具体位置描述]; 🌅 时间: [时间描述]; 🌤️ 天气: [天气状况]; 🔮 环境: [环境描述]; 👥 NPC: [NPC状态]; ⚡ 特殊事件: [事件描述]
-            [/WORLD]
-            
-            [QUESTS]
-            任务信息，使用分号分隔的任务列表格式：
-            1. [任务标题]: [任务描述]，进度[当前/目标]（奖励：[奖励描述]）; 2. [任务标题]: [任务描述]，进度[当前/目标]（奖励：[奖励描述]）
-            [/QUESTS]
-            
-            [CHOICES]
-            为玩家提供的行动选择，必须使用分号(;)分隔每个选择项：
-            1. [选择标题] - [选择描述]; 2. [选择标题] - [选择描述]; 3. [选择标题] - [选择描述]; 4. [选择标题] - [选择描述]; 5. 自由行动 - 描述你想要进行的其他行动
-            [/CHOICES]
-            
-重要：请确保结构化格式的完整性，不要遗漏任何字段。特别是结尾和开头约定
             """;
 
         // 从数据库获取世界特定规则
@@ -788,6 +781,8 @@ JSON字段使用原则：
                 NPC登场：- NPC的出现和介绍
                 环境氛围： - 整体氛围和感觉
               - 重要：必须使用分号分隔不同的对话模块，这是硬性格式要求
+              - ⚠️ 格式要求：每个标签后必须紧跟冒号，内容要简洁明了
+              - ⚠️ 格式示例：场景描述：[环境描述]; 角色动作：[角色行为]; NPC对话："[对话内容]"
 
 
             • WORLD块：
@@ -796,117 +791,60 @@ JSON字段使用原则：
               - NPC格式：角色名（身份）：状态描述 | 其他NPC...
               - 环境描述要生动详细
               - 重要：使用分号(;)分隔每个键值对，便于前端解析
+              - ⚠️ 格式要求：每个键后必须紧跟冒号，值要简洁明了
+              - ⚠️ 格式示例：📍 当前位置: [位置描述]; 🌅 时间: [时间描述]; 🌤️ 天气: [天气状况]; 👥 NPC: [NPC状态]; ⚡ 特殊事件: [事件描述]
 
-            • QUESTS块：
-              - 强制要求：必须使用分号(;)分隔每个任务项，这是硬性格式要求
-              - 任务格式：数字. 标题：描述，进度当前/目标（奖励：...）; 数字. 标题：描述，进度当前/目标（奖励：...）
-              - 每个任务项之间必须用分号(;)分隔，不能使用换行符或其他分隔符
-              - 任务描述要清晰，包含标题、描述、进度和奖励信息
-              - ⚠️ 重要：QUESTS块只应显示当前活跃的任务，已完成的任务必须从列表中移除
-              - ⚠️ 任务完成判断：当任务进度达到目标时（如进度1/1），该任务已完成，不应再出现在QUESTS块中
-              - ⚠️ 任务状态同步：QUESTS块的内容必须与questUpdates中的任务状态保持一致
-              - 错误示例：使用换行符分隔任务项（❌）
-              - 错误示例：显示已完成的任务（❌）
-              - 正确示例：1. 适应新环境：在开学第一天结识至少一位新朋友，进度0/1（奖励：经验值50、友情点数+1）; 2. 探索校园：参观至少三个不同的校园地点，进度0/3（奖励：经验值30、校园地图x1）; 3. 加入社团：选择并加入一个感兴趣的社团，进度0/1（奖励：经验值100、社团徽章x1）（✅）
+            • QUESTS块：使用分号(;)分隔任务项，格式：数字. 标题：描述，进度当前/目标（奖励：...）
+              - 只显示当前活跃任务，已完成任务必须移除
+              - 每个任务ID只能出现一次，不能重复
+              - 与questUpdates保持完全同步
+              - ⚠️ 格式要求：任务标题要简洁，描述要清晰，进度格式要准确
+              - ⚠️ 格式示例：1. [任务标题]：[任务描述]，进度[当前/目标]（奖励：[奖励内容]）; 2. [任务标题]：[任务描述]，进度[当前/目标]（奖励：[奖励内容]）
 
-            • CHOICES块：
-              - 强制要求：必须使用分号(;)分隔每个选择项，这是硬性格式要求
-              - 格式：数字. 标题 - 描述; 数字. 标题 - 描述; 数字. 标题 - 描述
-              - 标题要简洁明了，描述要清楚说明选择的效果
+            • CHOICES块：使用分号(;)分隔选择项，格式：数字. 标题 - 描述
               - 最后一个选择通常是"自由行动"选项
-              - 重要：每个选择项之间必须用分号(;)分隔，不能使用换行符或其他分隔符
-              - 错误示例：使用换行符分隔选择项（❌）
-              - 正确示例：1. 选项1 - 描述; 2. 选项2 - 描述; 3. 选项3 - 描述（✅）
+              - ⚠️ 格式要求：标题要简洁，描述要清晰说明选择的效果
+              - ⚠️ 格式示例：1. [选择标题] - [选择描述]; 2. [选择标题] - [选择描述]; 3. [选择标题] - [选择描述]; 4. 自由行动 - [自由行动描述]
 
-            • 评估JSON：
-              - 必须是有效的JSON对象
-              - 包含评估分数、策略、建议等字段
-              - 用§包裹，与其他标记块分离
+            • 评估JSON：用§包裹，包含评估分数、策略、建议等字段
             
-             任务评估要求（重要）
-            - 在每次评估时，必须仔细检查所有当前活跃任务
-            - 根据用户行为和剧情发展，判断每个活跃任务的状态：
-              * 是否已完成（用户行为满足了任务完成条件）
-              * 是否有进度更新（用户行为推进了任务进度）
-              * 是否已过期（剧情发展或用户选择导致任务不再有效）
-            - 任务过期判断标准：
-              * 时间过期：任务有明确的时间限制且已过期
-              * 剧情推进：故事发展导致任务目标不再相关或不可达成
-              * 用户选择：玩家的选择导致任务路径被阻断
-              * 逻辑冲突：任务与当前世界状态或剧情逻辑产生冲突
-            - ⚠️ 关键要求：QUESTS块与questUpdates必须保持同步
-              * 如果questUpdates中包含completed任务，这些任务必须从QUESTS块中移除
-              * 如果questUpdates中包含progress更新，QUESTS块中的进度必须相应更新
-              * 如果questUpdates中包含created任务，这些任务必须添加到QUESTS块中
-              * QUESTS块只应显示当前活跃的、未完成的任务
+            ⚠️ 前端渲染格式要求（重要）：
+            - 所有标记块必须严格按照格式要求，确保前端能正确解析和渲染
+            - DIALOGUE块：使用分号分隔不同模块，每个模块格式为"标签名：内容"
+            - WORLD块：使用分号分隔键值对，格式为"表情符号 键名: 值"
+            - QUESTS块：使用分号分隔任务项，格式为"数字. 标题：描述，进度当前/目标（奖励：...）"
+            - CHOICES块：使用分号分隔选择项，格式为"数字. 标题 - 描述"
+            - 评估JSON：用§包裹，必须是有效的JSON格式
+            - ⚠️ 重要：格式示例中的[占位符]仅为说明格式结构，请根据实际剧情内容填充，不要直接复制示例内容
+            
+             任务评估要求：
+            - 检查所有活跃任务状态：已完成、进度更新、已过期
+            - QUESTS块与questUpdates必须完全同步
+            - 每个任务ID只能出现一次，严禁重复
 
             
-             任务更新格式说明
-            - questUpdates字段用于记录任务状态变化，包含四个子字段：
-              - created: 新创建的任务数组，每个任务包含questId、title、description和rewards
-              - completed: 已完成的任务数组，每个任务包含questId和rewards
-              - progress: 进度更新的任务数组，每个任务包含questId和progress（格式："当前/目标"）
-              - expired: 已过期的任务数组，每个任务包含questId和reason（过期原因）
-            - rewards格式：{"exp": 数值, "gold": 数值, "items": ["物品名x数量", ...]}
-            - 重要：items字段只应包含本次任务完成获得的新物品，不要包含角色已有的物品
-            - 示例：如果角色已有"警徽x2"，本次任务又获得"警徽x1"，则items中应只写["警徽x1"]，系统会自动合并为"警徽x3"
-            - 只有在任务状态确实发生变化时才包含questUpdates字段
-            - 重要：请仔细评估所有活跃任务，将过期的任务标记为expired，避免任务无限累积
-            - ⚠️ 关键同步要求：QUESTS块必须与questUpdates保持完全同步
-              * 已完成的任务（completed）必须从QUESTS块中完全移除
-              * 新创建的任务（created）必须添加到QUESTS块中
-              * 进度更新的任务（progress）必须在QUESTS块中更新进度
-              * 过期的任务（expired）必须从QUESTS块中移除
-              * 确保QUESTS块只显示当前活跃的、未完成的任务
+             任务更新格式：
+            - questUpdates包含：created（新任务）、completed（完成任务）、progress（进度更新）、expired（过期任务）
+            - rewards格式：{"exp": 数值, "items": ["物品名x数量"]}
+            - items只包含本次获得的新物品，不重复已有物品
 
-             世界状态更新说明
-            - worldStateUpdates字段用于记录世界状态的变化，包含：
-              - currentLocation: 当前位置变化
-              - environment: 环境状态变化（天气、时间、氛围等）
-              - npcs: NPC状态变化数组，每个NPC包含name和status
-              - worldEvents: 世界事件数组
-              - factions: 势力关系变化
-              - locations: 地点状态变化
+             世界状态更新：
+            - worldStateUpdates包含：currentLocation、environment、npcs、worldEvents等
 
 
 重要说明：
-            - 任务奖励和角色状态更新由后端系统自动处理
-            - 大模型只需要在questUpdates中提供任务完成信息和奖励数据
-            - 后端会根据奖励自动更新角色的经验值、金币、物品、属性和技能
-            - 关键：rewards中的items字段必须只包含本次任务获得的新物品，不要重复列出角色已有的物品
-            - 正确示例：角色已有["警徽x2", "线索笔记x1"]，本次任务获得"警徽x1"和"新技能x1"，则items应写["警徽x1", "新技能x1"]
-            - 错误示例：不要写成["警徽x2", "线索笔记x1", "警徽x1", "新技能x1"]（这样会重复）
+            - 任务奖励由后端自动处理，只需提供questUpdates数据
+            - items字段只包含本次获得的新物品，不重复已有物品
+            - 任务ID必须唯一，完成后从活跃列表移除
             
-             情节更新说明 - arcUpdates字段
-            - arcUpdates字段用于记录情节相关的更新信息，包含：
-              - currentArcName: 当前情节名称（当情节发生变化时更新）
-              - currentArcStartRound: 当前情节起始轮数（当新情节开始时更新）
-              - totalRounds: 当前总轮数（系统会自动更新，通常不需要手动设置）
-            - 当故事进入新的情节阶段时，应该更新currentArcName和currentArcStartRound
-            - 情节名称应该简洁明了，反映当前故事的主要主题或阶段
-            - 只有在情节确实发生变化时才包含arcUpdates字段
+             其他更新字段：
+            - arcUpdates：情节更新（currentArcName、currentArcStartRound）
+            - convergenceStatusUpdates：收敛状态更新（progress、nearestScenarioId等）
 
-             收敛状态更新说明 - convergenceStatusUpdates字段
-            - convergenceStatusUpdates字段用于记录故事收敛状态的更新信息，包含：
-              - progress: 整体收敛进度 (0-1)，表示故事向结局推进的程度
-              - progressIncrement: 进度增量，用于增加收敛进度
-              - nearestScenarioId: 最近的收敛场景ID（如"story_convergence_2"）
-              - nearestScenarioTitle: 最近场景的标题（如"远古神庙"）
-              - distanceToNearest: 到最近场景的距离 (0-1)，越小越接近
-              - scenarioProgress: 各场景进度映射，如{"story_convergence_1": 1.0, "story_convergence_2": 0.75}
-              - activeHints: 当前活跃的引导提示列表，如["寻找神庙入口", "收集古代符文"]
-            - 当故事推进到新的阶段或接近收敛点时，应该更新这些信息
-            - 进度值应该反映当前故事发展的实际状态
-            - 只有在收敛状态确实发生变化时才包含convergenceStatusUpdates字段
-
-             评估JSON字段要求
-            - 评估JSON必须使用以下英文字段名：
-              * 基础评估字段：ruleCompliance、contextConsistency、convergenceProgress、overallScore、strategy、assessmentNotes、suggestedActions、convergenceHints
-              * 游戏逻辑字段：questUpdates、worldStateUpdates、diceRolls、learningChallenges、stateUpdates、memoryUpdates、arcUpdates、convergenceStatusUpdates
-            - strategy 取值仅能为：ACCEPT、ADJUST、CORRECT。
-            - 评估片段内禁止出现除JSON以外的任何字符或注释。
-            - 使用§包裹评估JSON，确保在正常叙事结束后使用。
-            - 所有游戏逻辑都通过评估JSON中的专门字段处理，不再使用指令标记。
+             评估JSON要求：
+            - 使用英文字段名：ruleCompliance、contextConsistency、convergenceProgress、overallScore、strategy等
+            - strategy取值：ACCEPT、ADJUST、CORRECT
+            - 用§包裹，放在回复最后
             """, userAction);
     }
     
@@ -1234,6 +1172,43 @@ JSON字段使用原则：
         } catch (Exception e) {
             logger.warn("获取实际对话轮数失败: sessionId={}", sessionId, e);
             return 0;
+        }
+    }
+    
+    /**
+     * 构建对话历史
+     */
+    private String buildConversationHistory(String sessionId) {
+        try {
+            // 获取会话信息
+            com.qncontest.entity.ChatSession session = chatSessionService.getSessionById(sessionId);
+            if (session == null) {
+                logger.warn("会话不存在: sessionId={}", sessionId);
+                return "";
+            }
+            
+            // 获取最近10轮对话历史
+            List<com.qncontest.entity.ChatMessage> historyMessages = 
+                chatSessionService.getSessionHistory(session, 10);
+            
+            if (historyMessages.isEmpty()) {
+                return "";
+            }
+            
+            StringBuilder history = new StringBuilder();
+            for (com.qncontest.entity.ChatMessage msg : historyMessages) {
+                if (msg.getRole() == com.qncontest.entity.ChatMessage.MessageRole.USER) {
+                    history.append("用户: ").append(msg.getContent()).append("\n");
+                } else {
+                    history.append("助手: ").append(msg.getContent()).append("\n");
+                }
+            }
+            
+            return history.toString();
+            
+        } catch (Exception e) {
+            logger.warn("构建对话历史失败: sessionId={}", sessionId, e);
+            return "";
         }
     }
 }
