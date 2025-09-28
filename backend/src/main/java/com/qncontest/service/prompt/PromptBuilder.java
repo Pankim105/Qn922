@@ -168,6 +168,11 @@ public class PromptBuilder implements PromptBuilderInterface {
             if (context.getCurrentArcStartRound() != null) {
                 int arcRounds = Math.max(1, actualRounds - context.getCurrentArcStartRound() + 1);
                 prompt.append("当前情节已进行轮数: ").append(arcRounds).append("\n");
+                
+                // 如果情节已进行超过5轮，提醒需要切换
+                if (arcRounds >= 5) {
+                    prompt.append("⚠️ 情节切换提醒：当前情节已进行").append(arcRounds).append("轮，建议在arcUpdates中更新情节名称和起始轮数\n");
+                }
             }
             prompt.append("\n");
         } catch (Exception e) {
@@ -323,6 +328,11 @@ public class PromptBuilder implements PromptBuilderInterface {
             if (context.getCurrentArcStartRound() != null) {
                 int arcRounds = Math.max(1, actualRounds - context.getCurrentArcStartRound() + 1);
                 prompt.append("当前情节已进行轮数: ").append(arcRounds).append("\n");
+                
+                // 如果情节已进行超过5轮，提醒需要切换
+                if (arcRounds >= 5) {
+                    prompt.append("⚠️ 情节切换提醒：当前情节已进行").append(arcRounds).append("轮，建议在arcUpdates中更新情节名称和起始轮数\n");
+                }
             }
             prompt.append("\n");
         } catch (Exception e) {
@@ -651,7 +661,19 @@ public class PromptBuilder implements PromptBuilderInterface {
               * 事件触发：重要事件发生、新角色出现、环境变化
               * 时间跳跃：时间推进到下一阶段
             - 强制执行：这是硬性要求，不可违反，无论当前对话内容如何
+            -             ⚠️ 情节切换要求：当当前情节已进行轮数≥5时，必须在arcUpdates中更新currentArcName和currentArcStartRound
+            - ⚠️ 情节命名：新情节名称应该反映当前故事的主要主题或阶段，如"探索阶段"、"战斗阶段"、"解谜阶段"等
+            - ⚠️ 强制执行：如果当前情节已进行≥5轮，arcUpdates字段是必须的，不能省略
 
+            📝 情节切换示例（当情节已进行≥5轮时）：
+            ```json
+            "arcUpdates": {
+              "currentArcName": "探索阶段",
+              "currentArcStartRound": 46
+            }
+            ```
+            - currentArcName：新情节名称，反映当前故事阶段
+            - currentArcStartRound：设置为当前总轮数，表示新情节从此轮开始
 
              🎯 游戏逻辑整合到评估JSON
 重要：所有游戏逻辑现在都通过评估JSON中的专门字段来处理，不再使用指令标记
@@ -839,6 +861,9 @@ JSON字段使用原则：
             
              其他更新字段：
             - arcUpdates：情节更新（currentArcName、currentArcStartRound）
+              * 当当前情节已进行≥5轮时，必须更新情节名称和起始轮数
+              * 新情节名称应反映当前故事阶段，如"探索阶段"、"战斗阶段"、"解谜阶段"等
+              * currentArcStartRound应设置为当前总轮数
             - convergenceStatusUpdates：收敛状态更新（progress、nearestScenarioId等）
 
              评估JSON要求：

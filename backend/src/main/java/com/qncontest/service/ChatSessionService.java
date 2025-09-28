@@ -167,8 +167,8 @@ public class ChatSessionService implements ChatSessionManagerInterface {
         
         // 首次设置情节起始轮数和情节名称
         if (session.getCurrentArcStartRound() == null) {
-            // 设置为当前轮数（因为这是第一轮对话）
-            session.setCurrentArcStartRound(session.getTotalRounds());
+            // 设置为1，表示从第1轮开始
+            session.setCurrentArcStartRound(1);
         }
         
         // 如果情节名称为空，设置默认名称
